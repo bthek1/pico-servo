@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-TARGET="${1:-blink}"
+TARGET="${1:-main}"
 MOUNT="${PICO_MOUNT:-/media/$(whoami)/RPI-RP2}"
 BUILD_DIR="build/targets/$TARGET"
 UF2=$(find "$BUILD_DIR" -maxdepth 1 -name "*.uf2" 2>/dev/null | head -1)

@@ -5,7 +5,7 @@ default:
 
 # pull, compile, and flash a target (default: blink)
 [group('workflow')]
-deploy target='blink': pull (compile target) (flash target)
+deploy target='main': pull (compile target) (flash target)
 
 # ── Git ───────────────────────────────────────────────────────────────────────
 
@@ -30,7 +30,7 @@ compile-clean target='':
 
 # flash a target (default: blink)
 [group('device')]
-flash target='blink':
+flash target='main':
     ssh pi "cd ~/Documents/pico/pico-servo && ./flash.sh {{target}}"
 
 # open serial monitor

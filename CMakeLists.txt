@@ -10,5 +10,6 @@ set(CMAKE_CXX_STANDARD 17)
 pico_sdk_init()
 
 add_subdirectory(lib/servo)
+add_subdirectory(targets/main)
 add_subdirectory(targets/blink)
 add_subdirectory(targets/sweep)
