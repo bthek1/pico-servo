@@ -13,7 +13,7 @@ for arg in "$@"; do
 done
 
 if [ -z "$TARGET" ] && [ -f "$SECRETS" ]; then
-    TARGET=$(grep -oP '(?<=#define DEFAULT_TARGET\s{1,20}")[^"]+' "$SECRETS")
+    TARGET=$(sed -n 's/^#define DEFAULT_TARGET[[:space:]]*"\([^"]*\)".*/\1/p' "$SECRETS")
 fi
 
 mkdir -p "$BUILD_DIR"

@@ -2,7 +2,7 @@
 set -e
 
 SECRETS="${BASH_SOURCE[0]%/*}/secrets.h"
-_DEFAULT=$([ -f "$SECRETS" ] && grep -oP '(?<=#define DEFAULT_TARGET\s{1,20}")[^"]+' "$SECRETS" || echo "main")
+_DEFAULT=$([ -f "$SECRETS" ] && sed -n 's/^#define DEFAULT_TARGET[[:space:]]*"\([^"]*\)".*/\1/p' "$SECRETS" || echo "main")
 TARGET="${1:-$_DEFAULT}"
 MOUNT="${PICO_MOUNT:-/media/$(whoami)/RPI-RP2}"
 BUILD_DIR="build/targets/$TARGET"
