@@ -1,7 +1,8 @@
 add_executable(main_fw main.c)
 
 target_link_libraries(main_fw
-    pico_stdlib
+    led
+    serial
     servo
 )
 

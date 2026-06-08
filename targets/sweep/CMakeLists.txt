@@ -1,6 +1,8 @@
 add_executable(sweep main.c)
 
 target_link_libraries(sweep
+    led
+    serial
     servo
 )
 

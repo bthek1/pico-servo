@@ -1,13 +1,19 @@
-#include "pico/stdlib.h"
+#include "led.h"
+#include "serial.h"
 #include "servo.h"
 
 #define SERVO_PIN  15
+#define LED_PIN    25
 #define STEP_DEG   1.0f
 #define STEP_MS    10
 
 int main() {
-    stdio_init_all();
+    serial_init();
+    led_init(LED_PIN);
     servo_init(SERVO_PIN);
+
+    serial_println("sweep start");
+    led_on(LED_PIN);
 
     float deg = 0.0f;
     float dir = 1.0f;
