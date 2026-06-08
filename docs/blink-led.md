@@ -45,25 +45,27 @@ int main() {
 
 ## Step-by-Step
 
-1. **Add the GPIO init** — call `gpio_init(25)` and `gpio_set_dir(25, GPIO_OUT)` once at startup, before the loop.
-2. **Toggle in the loop** — `gpio_put(25, 1)` turns the LED on; `gpio_put(25, 0)` turns it off.
-3. **SSH into the Raspberry Pi** (the build/flash host):
-   ```bash
-   ssh pi
-   ```
-4. **Build** on the Pi:
-   ```bash
-   ./compile.sh
-   ```
-5. **Flash** — hold BOOTSEL on the Pico, plug it into the Pi's USB, then:
-   ```bash
-   ./flash.sh
-   ```
-   Or manually:
-   ```bash
-   cp build/main/pico_servo.uf2 /media/pi/RPI-RP2/
-   ```
-6. **Verify** — the onboard LED should blink at 1 Hz (500 ms on / 500 ms off).
+- [x] **Write firmware** — `main/main.c` toggles GPIO 25 at 1 Hz via `gpio_put` + `sleep_ms`
+- [x] **CMake wired up** — root and target `CMakeLists.txt` created; `pico_stdlib` linked
+- [x] **Scripts created** — `compile.sh` and `flash.sh` present and executable
+- [x] **Pushed to GitHub** — `git@github.com:bthek1/pico-servo.git`
+- [x] **Toolchain verified on Pi** — `arm-none-eabi-gcc 12.2.1`, `cmake 3.25.1`
+- [x] **Repo cloned on Pi** — `~/Documents/pico/pico-servo`
+- [ ] **Init pico-sdk submodule** — `lib/` missing; submodule pull did not complete
+- [ ] **Build** — `./compile.sh`
+- [ ] **Flash** — hold BOOTSEL, plug Pico into Pi USB, run `./flash.sh`
+- [ ] **Verify** — LED blinks at 1 Hz
+
+### Resume from here
+
+```bash
+ssh pi
+cd ~/Documents/pico/pico-servo
+git submodule update --init --recursive   # pulls pico-sdk (~50 MB)
+./compile.sh
+# hold BOOTSEL, plug Pico in
+./flash.sh
+```
 
 To monitor serial output:
 ```bash
