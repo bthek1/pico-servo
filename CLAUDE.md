@@ -8,7 +8,7 @@ Servo motor control firmware for the **Raspberry Pi Pico** (standard RP2040), wr
 
 - **Board**: Raspberry Pi Pico W — `PICO_BOARD=pico_w`
 - **MCU**: RP2040, dual-core Arm Cortex-M0+, 264 KB RAM, 2 MB flash
-- **Wireless chip**: CYW43439 (Wi-Fi + Bluetooth) — present but networking is **not** in use
+- **Wireless chip**: CYW43439 (Wi-Fi + Bluetooth) — Wi-Fi available via `lib/wifi`
 - **Onboard LED**: wired to CYW43 chip GPIO (`CYW43_WL_GPIO_LED_PIN = 0`), **not** GPIO 25
 
 ## Host Machine
@@ -39,7 +39,8 @@ pico-servo/
 │   ├── pico-examples/      ← reference submodule (not built, browse only)
 │   ├── led/                ← GPIO LED library
 │   ├── serial/             ← USB serial library
-│   └── servo/              ← servo PWM library
+│   ├── servo/              ← servo PWM library
+│   └── wifi/               ← Wi-Fi connection library (lwip, poll mode)
 └── targets/
     ├── main/               ← primary target (default for flash/deploy)
     ├── blink/              ← LED blink demo
@@ -102,13 +103,17 @@ void led_off(uint gpio);
 void led_toggle(uint gpio);
 ```
 
-Link: `led` (pulls in `pico_stdlib` + `pico_cyw43_arch_none`)
+Link: `led` + one CYW43 arch variant (see arch rule below)
 
 On Pico W the `gpio` argument is ignored — the onboard LED is always `CYW43_WL_GPIO_LED_PIN`.
 Pass any value (e.g. `25`) and it compiles cleanly. `led_init` calls `cyw43_arch_init()` internally.
 
 Note: `PICO_CYW43_SUPPORTED` is a CMake variable only — it is **not** a C preprocessor define.
 Do not use `#ifdef PICO_CYW43_SUPPORTED` in C source; the CYW43 path in `lib/led` is unconditional.
+
+**CYW43 arch rule:** exactly one `pico_cyw43_arch_*` variant must be linked per binary. `led` no longer pulls one in automatically — each target declares it explicitly:
+- Non-wifi target: add `pico_cyw43_arch_none` to `target_link_libraries`
+- Wifi target: add `wifi` (which pulls in `pico_cyw43_arch_lwip_poll`); do **not** also add `pico_cyw43_arch_none`
 
 ### `lib/serial` — USB Serial
 
@@ -123,6 +128,23 @@ void serial_println(const char *fmt, ...);
 Link: `serial` (pulls in `pico_stdlib`)
 
 Use `getchar_timeout_us(0)` for non-blocking read; returns `PICO_ERROR_TIMEOUT` if no char available.
+
+### `lib/wifi` — Wi-Fi (lwip, poll mode)
+
+```c
+#include "wifi.h"
+
+wifi_result_t wifi_connect(const char *ssid, const char *password);
+bool          wifi_is_connected(void);
+const char   *wifi_get_ip(void);
+void          wifi_poll(void);   // call each main-loop iteration
+```
+
+Link: `wifi` (pulls in `pico_stdlib` + `pico_cyw43_arch_lwip_poll`)
+
+Call `led_init()` before `wifi_connect()` — `led_init()` runs `cyw43_arch_init()`.
+`wifi_connect()` uses `CYW43_AUTH_WPA2_AES_PSK` with a 10 s timeout.
+`wifi_poll()` drives the lwip stack; must be called in the main loop when using poll mode.
 
 ### `lib/servo` — Servo PWM
 
@@ -154,8 +176,9 @@ This keeps the loop non-blocking so multiple tasks (blink, serial report, echo) 
 
 ## What to Avoid
 
-- `pico_cyw43_arch_lwip_*` link libraries — networking is not in use; use `pico_cyw43_arch_none` only
-- Wi-Fi, Bluetooth, MQTT, lwIP, or TCP/IP anything — unless explicitly requested
+- `pico_cyw43_arch_lwip_threadsafe_background` — use poll mode (`pico_cyw43_arch_lwip_poll`) instead
+- Linking both `pico_cyw43_arch_none` and `pico_cyw43_arch_lwip_poll` in the same binary — pick one
+- Bluetooth, MQTT, or TCP/IP beyond lwip — unless explicitly requested
 - `PICO_BOARD=pico` — board is Pico W; always use `pico_w`
 - Busy-wait loops — use `sleep_ms()` / `sleep_us()` or `absolute_time_t` alarms
 - Calling `pico_sdk_init()` more than once
