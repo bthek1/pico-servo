@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-MOUNT="/media/pi/RPI-RP2"
+MOUNT="${PICO_MOUNT:-/media/$(whoami)/RPI-RP2}"
 BUILD_DIR="${1:-build/main}"
 UF2=$(find "$BUILD_DIR" -maxdepth 1 -name "*.uf2" | head -1)
 
