@@ -107,6 +107,9 @@ Link: `led` (pulls in `pico_stdlib` + `pico_cyw43_arch_none`)
 On Pico W the `gpio` argument is ignored — the onboard LED is always `CYW43_WL_GPIO_LED_PIN`.
 Pass any value (e.g. `25`) and it compiles cleanly. `led_init` calls `cyw43_arch_init()` internally.
 
+Note: `PICO_CYW43_SUPPORTED` is a CMake variable only — it is **not** a C preprocessor define.
+Do not use `#ifdef PICO_CYW43_SUPPORTED` in C source; the CYW43 path in `lib/led` is unconditional.
+
 ### `lib/serial` — USB Serial
 
 ```c
