@@ -1,7 +1,7 @@
 #include "pico/stdlib.h"
 
 #define LED_PIN  25
-#define BLINK_MS 500
+#define BLINK_MS 100
 
 int main() {
     stdio_init_all();

@@ -1,4 +1,5 @@
-default: deploy
+default:
+    @just --list
 
 pull:
     ssh pi "cd ~/Documents/pico/pico-servo && git pull"
