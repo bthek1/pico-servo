@@ -2,7 +2,7 @@
 
 ## Project
 
-Servo motor control firmware for the **Raspberry Pi Pico** (standard RP2040), written in C/C++ with the official Pico SDK.
+Servo motor control and Wi-Fi firmware for the **Raspberry Pi Pico W** (RP2040 + CYW43439), written in C/C++ with the official Pico SDK.
 
 ## Board
 
