@@ -14,9 +14,10 @@ Servo motor control firmware for the **Raspberry Pi Pico** (standard RP2040), wr
 
 The Pico is connected to a **Raspberry Pi** (the host/build machine).
 
-- SSH access: `ssh pi`
+- SSH access: `ssh pi` (username: `bthek1`)
+- Repo path on Pi: `~/Documents/pico/pico-servo`
 - All build, flash, and serial commands run **on the Raspberry Pi over SSH**
-- Flash mount point: `/media/pi/RPI-RP2/`
+- Flash mount point: `/media/bthek1/RPI-RP2/`
 
 When giving instructions that involve the terminal, assume the user is either already SSH'd in or needs to run `ssh pi` first.
 
@@ -35,7 +36,7 @@ Build output is in `build/` (gitignored). The flashable binary is `build/main/pi
 Manual flash (if `flash.sh` is unavailable):
 
 ```bash
-cp build/main/pico_servo.uf2 /media/pi/RPI-RP2/
+cp build/main/pico_servo.uf2 /media/bthek1/RPI-RP2/
 ```
 
 ## SDK & CMake Conventions

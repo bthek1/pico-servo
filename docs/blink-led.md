@@ -51,10 +51,10 @@ int main() {
 - [x] **Pushed to GitHub** — `git@github.com:bthek1/pico-servo.git`
 - [x] **Toolchain verified on Pi** — `arm-none-eabi-gcc 12.2.1`, `cmake 3.25.1`
 - [x] **Repo cloned on Pi** — `~/Documents/pico/pico-servo`
-- [ ] **Init pico-sdk submodule** — `lib/` missing; submodule pull did not complete
-- [ ] **Build** — `./compile.sh`
-- [ ] **Flash** — hold BOOTSEL, plug Pico into Pi USB, run `./flash.sh`
-- [ ] **Verify** — LED blinks at 1 Hz
+- [x] **Init pico-sdk submodule** — `lib/pico-sdk` populated via `git submodule update --init --recursive`
+- [x] **Build** — `./compile.sh` succeeded; `build/main/pico_servo.uf2` produced (46 KB)
+- [x] **Flash** — `./flash.sh` copied `.uf2` to `/media/bthek1/RPI-RP2`
+- [x] **Verify** — LED blinks at 1 Hz ✓
 
 ### Resume from here
 
