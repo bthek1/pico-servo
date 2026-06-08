@@ -10,6 +10,18 @@ if [ -z "$UF2" ]; then
     exit 1
 fi
 
+# If Pico is running firmware, reboot it into BOOTSEL via USB
+if [ ! -d "$MOUNT" ]; then
+    if command -v picotool &>/dev/null; then
+        echo "Rebooting Pico into BOOTSEL mode..."
+        picotool reboot -f -u 2>/dev/null || true
+        for i in $(seq 1 5); do
+            sleep 1
+            [ -d "$MOUNT" ] && break
+        done
+    fi
+fi
+
 if [ ! -d "$MOUNT" ]; then
     echo "Error: $MOUNT not found — hold BOOTSEL, then plug the Pico into USB"
     exit 1
