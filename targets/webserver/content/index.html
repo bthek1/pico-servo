@@ -3,27 +3,53 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Pico W</title>
+  <title>Pico W Terminal</title>
   <style>
-    body { font-family: sans-serif; max-width: 480px; margin: 2rem auto; padding: 0 1rem; }
-    h1   { color: #c62828; margin-bottom: 0.25rem; }
-    p    { color: #555; margin-top: 0; }
-    #status { font-size: 1.1rem; margin-top: 1.5rem; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #1e1e1e; color: #d4d4d4; font-family: monospace;
+           display: flex; flex-direction: column; height: 100vh; padding: 1rem; gap: .5rem; }
+    h2 { color: #c62828; font-size: 1rem; }
+    #output { flex: 1; background: #111; border: 1px solid #333; padding: .5rem;
+              overflow-y: auto; white-space: pre-wrap; font-size: .85rem; }
+    #input-row { display: flex; gap: .5rem; }
+    #input { flex: 1; background: #111; color: #d4d4d4; border: 1px solid #444;
+             padding: .4rem .6rem; font-family: monospace; font-size: .85rem; }
+    button { background: #c62828; color: #fff; border: none; padding: .4rem .8rem; cursor: pointer; }
   </style>
 </head>
 <body>
-  <h1>Pico W</h1>
-  <p>Raspberry Pi Pico W — lwIP HTTP server</p>
-  <div id="status">Loading…</div>
+  <h2>Pico W Terminal</h2>
+  <div id="output"></div>
+  <div id="input-row">
+    <input id="input" type="text" placeholder="type and press Enter…" autocomplete="off">
+    <button onclick="send()">Send</button>
+  </div>
   <script>
-    function poll() {
-      fetch('/status')
-        .then(r => r.text())
-        .then(t => document.getElementById('status').textContent = t)
-        .catch(() => document.getElementById('status').textContent = 'offline');
+    const out = document.getElementById('output');
+    const inp = document.getElementById('input');
+
+    function append(text) {
+      out.textContent += text;
+      out.scrollTop = out.scrollHeight;
     }
-    poll();
-    setInterval(poll, 2000);
+
+    function send() {
+      const text = inp.value;
+      if (!text) return;
+      inp.value = '';
+      append('> ' + text + '\n');
+      fetch('/send?data=' + encodeURIComponent(text))
+        .catch(() => append('[send failed]\n'));
+    }
+
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
+
+    setInterval(() => {
+      fetch('/recv.txt')
+        .then(r => r.text())
+        .then(t => { if (t) append(t); })
+        .catch(() => {});
+    }, 200);
   </script>
 </body>
 </html>

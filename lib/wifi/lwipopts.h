@@ -45,5 +45,6 @@
 #define LWIP_HTTPD_SSI                  0
 #define LWIP_HTTPD_MAX_TAG_NAME_LEN     16
 #define LWIP_HTTPD_MAX_TAG_INSERT_LEN   256
+#define LWIP_HTTPD_CUSTOM_FILES         1
 
 #endif

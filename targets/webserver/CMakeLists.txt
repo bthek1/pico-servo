@@ -8,7 +8,7 @@ target_include_directories(webserver PRIVATE
 pico_add_library(webserver_content NOFLAG)
 pico_set_lwip_httpd_content(webserver_content INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/content/index.html
-    ${CMAKE_CURRENT_LIST_DIR}/content/status.txt
+    ${CMAKE_CURRENT_LIST_DIR}/content/ok.txt
 )
 
 target_link_libraries(webserver
