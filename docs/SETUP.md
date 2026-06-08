@@ -73,12 +73,15 @@ pico-servo/
 ├── compile.sh              ← build script
 ├── flash.sh                ← flash script
 ├── justfile                ← task runner
+├── secrets.h               ← Wi-Fi credentials (gitignored)
+├── secrets.h.example       ← credential template (committed)
 ├── lib/
 │   ├── pico-sdk/           ← SDK submodule
 │   ├── pico-examples/      ← reference submodule (browse only, not built)
 │   ├── led/                ← shared LED library
 │   ├── serial/             ← shared serial library
-│   └── servo/              ← shared servo PWM library
+│   ├── servo/              ← shared servo PWM library
+│   └── wifi/               ← Wi-Fi connection library (lwip, poll mode)
 └── targets/
     ├── main/               ← primary program (default flash target)
     ├── blink/              ← LED blink demo
@@ -106,6 +109,7 @@ pico_sdk_init()
 add_subdirectory(lib/led)
 add_subdirectory(lib/serial)
 add_subdirectory(lib/servo)
+add_subdirectory(lib/wifi)
 add_subdirectory(targets/main)
 add_subdirectory(targets/blink)
 add_subdirectory(targets/sweep)
@@ -250,7 +254,7 @@ Install the **C/C++** and **CMake Tools** extensions, then create `.vscode/c_cpp
         "${workspaceFolder}/lib/pico-sdk/src/boards/include"
       ],
       "defines": [
-        "PICO_BOARD=pico"
+        "PICO_BOARD=pico_w"
       ],
       "compilerPath": "/usr/bin/arm-none-eabi-gcc",
       "cStandard": "c11",
@@ -272,7 +276,32 @@ And `.vscode/settings.json`:
 
 ---
 
-## 12. Adding a New Target
+## 12. Secrets (Wi-Fi credentials)
+
+Wi-Fi credentials are stored in `secrets.h` at the repo root. This file is gitignored and must be synced to the Pi manually.
+
+```bash
+cp secrets.h.example secrets.h
+# edit secrets.h with real SSID and password
+just push-secrets    # copy to Pi
+```
+
+To use credentials in a target, add the repo root to its include path:
+
+```cmake
+target_include_directories(main PRIVATE ${CMAKE_SOURCE_DIR})
+```
+
+Then in source:
+
+```c
+#include "secrets.h"
+wifi_connect(WIFI_SSID, WIFI_PASSWORD);
+```
+
+`just deploy` and `just deploy-clean` run `push-secrets` automatically before compiling.
+
+## 13. Adding a New Target
 
 1. Create `targets/<name>/main.c` and `targets/<name>/CMakeLists.txt`
 2. Add `add_subdirectory(targets/<name>)` to root `CMakeLists.txt`
@@ -289,6 +318,7 @@ And `.vscode/settings.json`:
 | Clean build | `./compile.sh --clean` |
 | Flash default (main) | `./flash.sh` |
 | Flash specific target | `./flash.sh <target>` |
-| Deploy (pull+build+flash) | `just deploy [target]` |
+| Deploy (pull+secrets+build+flash) | `just deploy [target]` |
+| Copy secrets.h to Pi | `just push-secrets` |
 | Serial monitor | `just monitor` |
 | Init submodules | `git submodule update --init --recursive` |

@@ -3,10 +3,9 @@ add_executable(main main.c)
 target_include_directories(main PRIVATE ${CMAKE_SOURCE_DIR})
 
 target_link_libraries(main
-    led
+    wifi
     serial
     servo
-    pico_cyw43_arch_none
 )
 
 pico_add_extra_outputs(main)

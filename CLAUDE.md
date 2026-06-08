@@ -29,7 +29,9 @@ pico-servo/
 ├── CMakeLists.txt          ← root: SDK init + add_subdirectory for each lib and target
 ├── compile.sh              ← build all, or a single target: ./compile.sh [target]
 ├── flash.sh                ← flash a target (default: main): ./flash.sh [target]
-├── justfile                ← just commands: deploy, compile, flash, monitor
+├── justfile                ← just commands: deploy, compile, flash, monitor, push-secrets
+├── secrets.h               ← Wi-Fi credentials (gitignored, copy from secrets.h.example)
+├── secrets.h.example       ← credential template (committed)
 ├── docs/
 │   ├── SETUP.md            ← environment setup guide
 │   └── plans/              ← active design/migration plans
@@ -62,11 +64,12 @@ picocom -b 115200 /dev/ttyACM0   # serial monitor
 Or via justfile (run locally, SSH to Pi automatically):
 
 ```bash
-just deploy           # pull + compile + flash main
-just deploy sweep     # pull + compile + flash sweep
+just deploy           # pull + push-secrets + compile + flash main
+just deploy sweep     # pull + push-secrets + compile + flash sweep
 just compile sweep    # compile one target on Pi
 just flash sweep      # flash one target on Pi
 just monitor          # open serial monitor on Pi
+just push-secrets     # copy secrets.h to Pi (run after editing credentials)
 ```
 
 Build output is in `build/` (gitignored). UF2 files land at `build/targets/<target>/<target>.uf2`.
@@ -103,7 +106,7 @@ void led_off(uint gpio);
 void led_toggle(uint gpio);
 ```
 
-Link: `led` + one CYW43 arch variant (see arch rule below)
+Link: `led` (pulls in `pico_stdlib` + `pico_cyw43_arch_none`)
 
 On Pico W the `gpio` argument is ignored — the onboard LED is always `CYW43_WL_GPIO_LED_PIN`.
 Pass any value (e.g. `25`) and it compiles cleanly. `led_init` calls `cyw43_arch_init()` internally.
@@ -111,9 +114,7 @@ Pass any value (e.g. `25`) and it compiles cleanly. `led_init` calls `cyw43_arch
 Note: `PICO_CYW43_SUPPORTED` is a CMake variable only — it is **not** a C preprocessor define.
 Do not use `#ifdef PICO_CYW43_SUPPORTED` in C source; the CYW43 path in `lib/led` is unconditional.
 
-**CYW43 arch rule:** exactly one `pico_cyw43_arch_*` variant must be linked per binary. `led` no longer pulls one in automatically — each target declares it explicitly:
-- Non-wifi target: add `pico_cyw43_arch_none` to `target_link_libraries`
-- Wifi target: add `wifi` (which pulls in `pico_cyw43_arch_lwip_poll`); do **not** also add `pico_cyw43_arch_none`
+**CYW43 arch rule:** exactly one `pico_cyw43_arch_*` variant per binary. `led` and `wifi` carry different arch variants — do **not** link both in the same target. Wifi targets use `wifi_led_*` for LED control instead of `led`.
 
 ### `lib/serial` — USB Serial
 
@@ -137,12 +138,16 @@ Use `getchar_timeout_us(0)` for non-blocking read; returns `PICO_ERROR_TIMEOUT` 
 wifi_result_t wifi_connect(const char *ssid, const char *password);
 bool          wifi_is_connected(void);
 const char   *wifi_get_ip(void);
-void          wifi_poll(void);   // call each main-loop iteration
+void          wifi_poll(void);       // call each main-loop iteration
+
+void          wifi_led_on(void);
+void          wifi_led_off(void);
+void          wifi_led_toggle(void);
 ```
 
 Link: `wifi` (pulls in `pico_stdlib` + `pico_cyw43_arch_lwip_poll`)
 
-Call `led_init()` before `wifi_connect()` — `led_init()` runs `cyw43_arch_init()`.
+`wifi_connect()` handles `cyw43_arch_init()` internally; do not also link `led` in the same target.
 `wifi_connect()` uses `CYW43_AUTH_WPA2_AES_PSK` with a 10 s timeout.
 `wifi_poll()` drives the lwip stack; must be called in the main loop when using poll mode.
 
@@ -159,6 +164,19 @@ void servo_set_deg(uint gpio, float degrees);       // 0–180°
 Link: `servo` (pulls in `pico_stdlib`, `hardware_pwm`, `hardware_clocks`)
 
 PWM: 125 MHz / (100 × 25000) = 50 Hz. Level = pulse_us × 25000 / 20000.
+
+## Secrets
+
+Wi-Fi credentials and other secrets live in `secrets.h` at the repo root (gitignored). The committed `secrets.h.example` shows the required defines:
+
+```c
+#define WIFI_SSID     "your_ssid_here"
+#define WIFI_PASSWORD "your_password_here"
+```
+
+To use in a target, add `target_include_directories(<target> PRIVATE ${CMAKE_SOURCE_DIR})` in its `CMakeLists.txt`, then `#include "secrets.h"` in source.
+
+`secrets.h` is never synced via `git pull` — use `just push-secrets` to copy it to the Pi. `just deploy` and `just deploy-clean` run `push-secrets` automatically.
 
 ## Timing
 
@@ -183,5 +201,5 @@ This keeps the loop non-blocking so multiple tasks (blink, serial report, echo) 
 - Busy-wait loops — use `sleep_ms()` / `sleep_us()` or `absolute_time_t` alarms
 - Calling `pico_sdk_init()` more than once
 - Calling `stdio_init_all()` directly — use `serial_init()` instead
-- Calling `cyw43_arch_init()` directly — `led_init()` handles it
+- Calling `cyw43_arch_init()` directly — `led_init()` handles it for non-wifi targets; `wifi_connect()` handles it for wifi targets
 - Adding `lib/pico-examples` to CMake — it is browse-only reference, not built
