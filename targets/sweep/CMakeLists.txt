@@ -4,7 +4,6 @@ target_link_libraries(sweep
     led
     serial
     servo
-    pico_cyw43_arch_none
 )
 
 pico_add_extra_outputs(sweep)

@@ -5,18 +5,25 @@ default:
 
 # pull, compile, and flash a target (default: main)
 [group('workflow')]
-deploy target='main': pull (compile target) (flash target)
+deploy target='main': pull push-secrets (compile target) (flash target)
 
 # pull, clean compile, and flash a target (default: main)
 [group('workflow')]
-deploy-clean target='main': pull (compile-clean target) (flash target)
+deploy-clean target='main': pull push-secrets (compile-clean target) (flash target)
+
+# ── Secrets ───────────────────────────────────────────────────────────────────
+
+# copy secrets.h to the Pi (never committed, must be synced manually)
+[group('secrets')]
+push-secrets:
+    scp secrets.h pi:~/Documents/pico/pico-servo/secrets.h
 
 # ── Git ───────────────────────────────────────────────────────────────────────
 
-# git pull on the Pi
+# force pull on the Pi, discarding any local changes
 [group('git')]
 pull:
-    ssh pi "cd ~/Documents/pico/pico-servo && git pull"
+    ssh pi "cd ~/Documents/pico/pico-servo && git fetch origin && git reset --hard origin/main"
 
 # ── Build ─────────────────────────────────────────────────────────────────────
 

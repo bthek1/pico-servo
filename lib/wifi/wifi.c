@@ -4,6 +4,7 @@
 #include "lwip/ip4_addr.h"
 
 wifi_result_t wifi_connect(const char *ssid, const char *password) {
+    if (cyw43_arch_init() != 0) return WIFI_ERR_FAIL;
     cyw43_arch_enable_sta_mode();
     int err = cyw43_arch_wifi_connect_timeout_ms(
         ssid, password, CYW43_AUTH_WPA2_AES_PSK, 10000);
@@ -20,4 +21,18 @@ const char *wifi_get_ip(void) {
 
 void wifi_poll(void) {
     cyw43_arch_poll();
+}
+
+void wifi_led_on(void) {
+    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
+}
+
+void wifi_led_off(void) {
+    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
+}
+
+void wifi_led_toggle(void) {
+    static bool state = false;
+    state = !state;
+    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, state);
 }
