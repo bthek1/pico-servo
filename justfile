@@ -3,9 +3,13 @@ default:
 
 # ── Workflow ──────────────────────────────────────────────────────────────────
 
-# pull, compile, and flash a target (default: blink)
+# pull, compile, and flash a target (default: main)
 [group('workflow')]
 deploy target='main': pull (compile target) (flash target)
+
+# pull, clean compile, and flash a target (default: main)
+[group('workflow')]
+deploy-clean target='main': pull (compile-clean target) (flash target)
 
 # ── Git ───────────────────────────────────────────────────────────────────────
 

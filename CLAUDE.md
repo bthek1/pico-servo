@@ -70,7 +70,7 @@ just monitor          # open serial monitor on Pi
 
 Build output is in `build/` (gitignored). UF2 files land at `build/targets/<target>/<target>.uf2`.
 
-The default target is **`main`** (`build/targets/main/main_fw.uf2`).
+The default target is **`main`** (`build/targets/main/main.uf2`).
 
 Manual flash:
 
