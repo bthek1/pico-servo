@@ -46,7 +46,8 @@ pico-servo/
 └── targets/
     ├── main/               ← primary target (default for flash/deploy)
     ├── blink/              ← LED blink demo
-    └── sweep/              ← servo sweep demo
+    ├── sweep/              ← servo sweep demo
+    └── webserver/          ← Wi-Fi HTTP server; serves HTML/JS at http://<ip>/
 ```
 
 ## Build & Flash
@@ -150,6 +151,49 @@ Link: `wifi` (pulls in `pico_stdlib` + `pico_cyw43_arch_lwip_poll`)
 `wifi_connect()` handles `cyw43_arch_init()` internally; do not also link `led` in the same target.
 `wifi_connect()` uses `CYW43_AUTH_WPA2_AES_PSK` with a 10 s timeout.
 `wifi_poll()` drives the lwip stack; must be called in the main loop when using poll mode.
+
+### lwIP HTTP Server (`pico_lwip_http`)
+
+Use the SDK's built-in lwIP httpd to serve HTML/JS pages embedded in the firmware binary.
+
+**CMake pattern:**
+
+```cmake
+pico_add_library(mylib_content NOFLAG)
+pico_set_lwip_httpd_content(mylib_content INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/content/index.html
+    ${CMAKE_CURRENT_LIST_DIR}/content/status.txt
+)
+target_link_libraries(mytarget wifi serial pico_lwip_http mylib_content)
+target_include_directories(mytarget PRIVATE ${PICO_LWIP_CONTRIB_PATH}/apps/httpd)
+```
+
+`pico_set_lwip_httpd_content()` runs `makefsdata.py` at build time and generates
+`pico_fsdata.inc` in the build dir. The include dir is added automatically.
+
+**Critical:** `lwipopts.h` must define:
+
+```c
+#define HTTPD_FSDATA_FILE "pico_fsdata.inc"
+```
+
+Without this, lwIP ignores the generated fsdata and falls back to its own built-in demo page.
+This define is already present in `lib/wifi/lwipopts.h`.
+
+**CGI handlers** (for JS `fetch` endpoints):
+
+```c
+#include "lwip/apps/httpd.h"
+
+static const char *cgi_handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]) {
+    return "/response.txt";   // file must exist in fsdata content
+}
+static const tCGI cgi_handlers[] = { { "/endpoint", cgi_handler } };
+httpd_init();
+http_set_cgi_handlers(cgi_handlers, 1);
+```
+
+See `targets/webserver/` for a working example.
 
 ### `lib/servo` — Servo PWM
 

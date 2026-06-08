@@ -1,6 +1,6 @@
 # Plan: Serve HTML/JS Page from Pico W
 
-## Status: implemented, pending flash & test
+## Status: complete ✓
 
 ## Goal
 
@@ -33,7 +33,8 @@ targets/webserver/
 - [x] **Step 4** — `targets/webserver/webserver.c`: wifi connect → `httpd_init()` → CGI handler → `wifi_poll()` loop; logs IP to serial on boot
 - [x] **Step 5** — `targets/webserver/CMakeLists.txt`: links `wifi` + `serial` + `pico_lwip_http` + `webserver_content`; uses `pico_set_lwip_httpd_content()` for `index.html` and `status.txt`
 - [x] **Step 6** — root `CMakeLists.txt`: `add_subdirectory(targets/webserver)` added
-- [ ] **Step 7** — build & flash: `just deploy webserver`; verify page loads at `http://<ip>/`
+- [x] **Step 7** — build & flash: `just deploy webserver`; verified — `index.html` served at `/`, `/status` returns `Pico W online`
+- [x] **Fix** — added `#define HTTPD_FSDATA_FILE "pico_fsdata.inc"` to `lwipopts.h`; without it lwIP ignores the generated fsdata and falls back to its built-in demo page
 
 ## Deploy
 
