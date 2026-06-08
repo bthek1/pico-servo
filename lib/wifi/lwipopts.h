@@ -40,6 +40,7 @@
 // httpd
 #define LWIP_HTTPD                      1
 #define LWIP_HTTPD_DYNAMIC_HEADERS      1
+#define HTTPD_FSDATA_FILE               "pico_fsdata.inc"
 #define LWIP_HTTPD_CGI                  1
 #define LWIP_HTTPD_SSI                  0
 #define LWIP_HTTPD_MAX_TAG_NAME_LEN     16
