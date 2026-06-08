@@ -13,7 +13,7 @@ done
 
 mkdir -p "$BUILD_DIR"
 cd "$BUILD_DIR"
-cmake .. -DPICO_BOARD=pico
+cmake .. -DPICO_BOARD=pico_w
 
 if [ -n "$TARGET" ]; then
     make -j$(nproc) "$TARGET"

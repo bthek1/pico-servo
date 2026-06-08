@@ -8,12 +8,13 @@ A step-by-step guide to setting up a Raspberry Pi Pico C/C++ development environ
 
 | | |
 |---|---|
-| **Board** | Raspberry Pi Pico (standard) |
+| **Board** | Raspberry Pi Pico W |
 | **MCU** | RP2040 (dual-core Arm Cortex-M0+) |
-| **`PICO_BOARD`** | `pico` |
-| **Wi-Fi / Bluetooth** | None — this is **not** the Pico W |
+| **`PICO_BOARD`** | `pico_w` |
+| **Wireless chip** | CYW43439 (Wi-Fi + Bluetooth) — present, networking not in use |
+| **Onboard LED** | CYW43 GPIO (`CYW43_WL_GPIO_LED_PIN = 0`) — **not** GPIO 25 |
 
-> Do **not** use `PICO_BOARD=pico_w`, `cyw43`, `lwIP`, or any wireless libraries. The standard Pico has no CYW43 chip.
+> The onboard LED requires `pico_cyw43_arch_none` and `cyw43_arch_init()`. The `lib/led` library handles this automatically. Do **not** use networking libraries (`pico_cyw43_arch_lwip_*`, lwIP, MQTT) unless explicitly needed.
 
 ---
 
@@ -43,53 +44,48 @@ sudo apt install -y \
 
 ## 2. Get the Pico SDK
 
-The SDK can be pulled as a git submodule (recommended for project portability) or installed system-wide.
-
-### Option A — Git submodule (recommended)
+The SDK is pulled as a git submodule for project portability.
 
 ```bash
-# Inside your project root
 mkdir lib
 git submodule add https://github.com/raspberrypi/pico-sdk lib/pico-sdk
 git submodule update --init --recursive
 ```
 
-Then point CMake at it in your root `CMakeLists.txt`:
+Point CMake at it in the root `CMakeLists.txt`:
 
 ```cmake
 set(PICO_SDK_PATH "${CMAKE_CURRENT_LIST_DIR}/lib/pico-sdk")
 include(${PICO_SDK_PATH}/pico_sdk_init.cmake)
 ```
 
-### Option B — System-wide
-
-```bash
-git clone https://github.com/raspberrypi/pico-sdk ~/pico-sdk
-cd ~/pico-sdk && git submodule update --init
-export PICO_SDK_PATH=~/pico-sdk   # add to ~/.bashrc to persist
-```
-
-Then in `CMakeLists.txt`:
-
-```cmake
-include($ENV{PICO_SDK_PATH}/pico_sdk_init.cmake)
-```
+Do **not** rely on the `PICO_SDK_PATH` environment variable — hardcode the path in CMakeLists.txt.
 
 ---
 
 ## 3. Project Structure
 
-A minimal project looks like this:
+This project uses a multi-target layout with shared libraries:
 
 ```
-my-project/
-├── CMakeLists.txt        # Root CMake config
-├── main/
-│   ├── CMakeLists.txt    # Target-level CMake config
-│   └── main.c            # Application source
-└── lib/
-    └── pico-sdk/         # SDK submodule
+pico-servo/
+├── CMakeLists.txt          ← root: SDK init + add_subdirectory per lib and target
+├── compile.sh              ← build script
+├── flash.sh                ← flash script
+├── justfile                ← task runner
+├── lib/
+│   ├── pico-sdk/           ← SDK submodule
+│   ├── pico-examples/      ← reference submodule (browse only, not built)
+│   ├── led/                ← shared LED library
+│   ├── serial/             ← shared serial library
+│   └── servo/              ← shared servo PWM library
+└── targets/
+    ├── main/               ← primary program (default flash target)
+    ├── blink/              ← LED blink demo
+    └── sweep/              ← servo sweep demo
 ```
+
+Each target produces its own `.uf2` at `build/targets/<target>/<target>.uf2`.
 
 ---
 
@@ -101,44 +97,70 @@ cmake_minimum_required(VERSION 3.13)
 set(PICO_SDK_PATH "${CMAKE_CURRENT_LIST_DIR}/lib/pico-sdk")
 include(${PICO_SDK_PATH}/pico_sdk_init.cmake)
 
-project(my_project C CXX ASM)
+project(pico_servo C CXX ASM)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 
 pico_sdk_init()
-add_subdirectory(main)
+
+add_subdirectory(lib/led)
+add_subdirectory(lib/serial)
+add_subdirectory(lib/servo)
+add_subdirectory(targets/main)
+add_subdirectory(targets/blink)
+add_subdirectory(targets/sweep)
 ```
+
+`pico_sdk_init()` must be called exactly once, before any `add_subdirectory`.
 
 ---
 
-## 5. Target CMakeLists.txt
+## 5. Shared Library CMakeLists.txt
+
+Libraries use the `INTERFACE` pattern so include paths and link deps propagate automatically to consumers:
 
 ```cmake
-add_executable(my_project main.c)
-
-target_link_libraries(my_project
-    pico_stdlib
-)
-
-pico_add_extra_outputs(my_project)  # generates .uf2, .hex, .bin, .map
-
-# Enable USB serial, disable UART serial
-pico_enable_stdio_usb(my_project 1)
-pico_enable_stdio_uart(my_project 0)
+add_library(led INTERFACE)
+target_sources(led INTERFACE led.c)
+target_include_directories(led INTERFACE .)
+target_link_libraries(led INTERFACE pico_stdlib)
 ```
 
 ---
 
-## 6. Minimal main.c
+## 6. Target CMakeLists.txt
+
+Each target only lists the libraries it actually uses:
+
+```cmake
+add_executable(main_fw main.c)
+
+target_link_libraries(main_fw
+    led
+    serial
+    servo
+)
+
+pico_add_extra_outputs(main_fw)   # generates .uf2, .hex, .bin, .map
+pico_enable_stdio_usb(main_fw 1)
+pico_enable_stdio_uart(main_fw 0)
+```
+
+---
+
+## 7. Minimal main.c
 
 ```c
-#include "pico/stdlib.h"
+#include "led.h"
+#include "serial.h"
+
+#define LED_PIN 25
 
 int main() {
-    stdio_init_all();
-    while (!stdio_usb_connected()) sleep_ms(100); // wait for USB serial
+    serial_init();
+    led_init(LED_PIN);
 
-    printf("Hello from Pico!\n");
+    serial_println("ready");
 
     while (true) {
         sleep_ms(1000);
@@ -146,59 +168,67 @@ int main() {
 }
 ```
 
----
-
-## 7. Build
-
-```bash
-mkdir build && cd build
-cmake ..
-make -j$(nproc)
-```
-
-Or using the convenience scripts in this repo:
-
-```bash
-./compile.sh          # normal build
-./compile.sh --clean  # wipe build/ and rebuild
-```
-
-A successful build produces `build/main/my_project.uf2`.
+Use `serial_init()` instead of bare `stdio_init_all()`. Use `getchar_timeout_us(0)` for non-blocking serial reads.
 
 ---
 
-## 8. Flash to Pico
-
-1. Hold **BOOTSEL** on the Pico and plug it into USB.
-2. It mounts as a drive named `RPI-RP2`.
-3. Copy the `.uf2` file to the drive:
+## 8. Build
 
 ```bash
-cp build/main/my_project.uf2 /media/$USER/RPI-RP2/
+./compile.sh            # build all targets
+./compile.sh main_fw    # build one target
+./compile.sh --clean    # wipe build/ and rebuild
 ```
 
-Or use the `flash.sh` script in this repo:
+Or via justfile (runs on Pi over SSH):
 
 ```bash
-./flash.sh              # flashes build/main/ (default)
-./flash.sh path/to/dir  # flashes a specific build subdirectory
+just compile            # build all
+just compile sweep      # build one target
+just compile-clean      # clean build
 ```
 
-The Pico reboots automatically and starts running the firmware.
+A successful build produces `.uf2` files under `build/targets/`.
 
 ---
 
-## 9. Serial Monitor
+## 9. Flash to Pico
 
-USB serial output is readable via any serial terminal:
+```bash
+./flash.sh              # flash default target (main)
+./flash.sh sweep        # flash a specific target
+```
+
+`flash.sh` attempts to auto-reboot the Pico into BOOTSEL mode via `picotool`. If that fails, hold **BOOTSEL** on the Pico and plug it into USB manually — it mounts as `RPI-RP2`.
+
+Manual flash:
+
+```bash
+cp build/targets/main/main_fw.uf2 /media/$USER/RPI-RP2/
+```
+
+Via justfile:
+
+```bash
+just flash              # flash main
+just flash sweep        # flash sweep
+just deploy             # pull + compile + flash main
+just deploy sweep       # pull + compile + flash sweep
+```
+
+---
+
+## 10. Serial Monitor
 
 ```bash
 picocom -b 115200 /dev/ttyACM0
+# or
+just monitor
 ```
 
 Exit picocom with `Ctrl+A` then `Ctrl+X`.
 
-If `/dev/ttyACM0` is not found, try `/dev/ttyUSB0` or check:
+If `/dev/ttyACM0` is not found:
 
 ```bash
 ls /dev/tty*   # before and after plugging in to identify the port
@@ -206,7 +236,7 @@ ls /dev/tty*   # before and after plugging in to identify the port
 
 ---
 
-## 10. VS Code IntelliSense
+## 11. VS Code IntelliSense
 
 Install the **C/C++** and **CMake Tools** extensions, then create `.vscode/c_cpp_properties.json`:
 
@@ -232,7 +262,7 @@ Install the **C/C++** and **CMake Tools** extensions, then create `.vscode/c_cpp
 }
 ```
 
-And `.vscode/settings.json` to wire up CMake Tools:
+And `.vscode/settings.json`:
 
 ```json
 {
@@ -242,28 +272,11 @@ And `.vscode/settings.json` to wire up CMake Tools:
 
 ---
 
-## 11. Adding pico-examples (optional)
+## 12. Adding a New Target
 
-The official examples are useful as reference or to flash directly:
-
-```bash
-git submodule add https://github.com/raspberrypi/pico-examples lib/pico-examples
-git submodule update --init --recursive
-```
-
-Add to root `CMakeLists.txt`:
-
-```cmake
-add_subdirectory(lib/pico-examples)
-```
-
-Then build and flash any example:
-
-```bash
-make -j$(nproc)
-./flash.sh lib/pico-examples/blink
-./flash.sh lib/pico-examples/gpio/hello_gpio
-```
+1. Create `targets/<name>/main.c` and `targets/<name>/CMakeLists.txt`
+2. Add `add_subdirectory(targets/<name>)` to root `CMakeLists.txt`
+3. Flash with `./flash.sh <name>` or `just flash <name>`
 
 ---
 
@@ -271,9 +284,11 @@ make -j$(nproc)
 
 | Task | Command |
 |---|---|
-| Build | `./compile.sh` |
+| Build all | `./compile.sh` |
+| Build one target | `./compile.sh <target>` |
 | Clean build | `./compile.sh --clean` |
-| Flash default | `./flash.sh` |
-| Flash example | `./flash.sh lib/pico-examples/blink` |
-| Serial monitor | `make terminal` |
+| Flash default (main) | `./flash.sh` |
+| Flash specific target | `./flash.sh <target>` |
+| Deploy (pull+build+flash) | `just deploy [target]` |
+| Serial monitor | `just monitor` |
 | Init submodules | `git submodule update --init --recursive` |
