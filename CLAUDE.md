@@ -180,20 +180,49 @@ target_include_directories(mytarget PRIVATE ${PICO_LWIP_CONTRIB_PATH}/apps/httpd
 Without this, lwIP ignores the generated fsdata and falls back to its own built-in demo page.
 This define is already present in `lib/wifi/lwipopts.h`.
 
-**CGI handlers** (for JS `fetch` endpoints):
+**CGI handlers** (browser → Pico, query param input):
 
 ```c
 #include "lwip/apps/httpd.h"
 
 static const char *cgi_handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]) {
-    return "/response.txt";   // file must exist in fsdata content
+    // pcParam[i] / pcValue[i] are URL-encoded — decode before use
+    return "/ok.txt";   // file must exist in fsdata content
 }
-static const tCGI cgi_handlers[] = { { "/endpoint", cgi_handler } };
+static const tCGI cgi_handlers[] = { { "/send", cgi_handler } };
 httpd_init();
 http_set_cgi_handlers(cgi_handlers, 1);
 ```
 
-See `targets/webserver/` for a working example.
+**Dynamic responses with `fs_open_custom`** (Pico → browser, runtime data):
+
+Set `LWIP_HTTPD_CUSTOM_FILES 1` in `lwipopts.h` (already set). Then implement:
+
+```c
+#include "lwip/apps/fs.h"
+
+static char response_buf[512];
+static int  response_len = 0;
+
+int fs_open_custom(struct fs_file *file, const char *name) {
+    if (strcmp(name, "/data.txt") == 0) {
+        // fill response_buf / response_len from your data source
+        file->data  = response_buf;
+        file->len   = response_len;
+        file->index = response_len;  // pre-loaded: no fs_read needed
+        file->flags = 0;             // httpd generates Content-Type from extension
+        return 1;                    // 0 = fall through to fsdata
+    }
+    return 0;
+}
+void fs_close_custom(struct fs_file *file) { (void)file; }
+```
+
+`fs_open_custom` is called before fsdata lookup. `file->index = file->len` signals that
+the data is already in memory (lwIP reads it directly without calling `fs_read_custom`).
+`response_buf` must remain valid for the lifetime of the HTTP response.
+
+See `targets/webserver/` for a working bidirectional serial terminal using both patterns.
 
 ### `lib/servo` — Servo PWM
 

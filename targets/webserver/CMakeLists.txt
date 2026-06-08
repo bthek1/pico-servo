@@ -14,6 +14,7 @@ pico_set_lwip_httpd_content(webserver_content INTERFACE
 target_link_libraries(webserver
     wifi
     serial
+    servo
     pico_lwip_http
     webserver_content
 )
