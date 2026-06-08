@@ -37,4 +37,12 @@
 #define DHCP_DOES_ARP_CHECK         0
 #define LWIP_DHCP_DOES_ACD_CHECK    0
 
+// httpd
+#define LWIP_HTTPD                      1
+#define LWIP_HTTPD_DYNAMIC_HEADERS      1
+#define LWIP_HTTPD_CGI                  1
+#define LWIP_HTTPD_SSI                  0
+#define LWIP_HTTPD_MAX_TAG_NAME_LEN     16
+#define LWIP_HTTPD_MAX_TAG_INSERT_LEN   256
+
 #endif

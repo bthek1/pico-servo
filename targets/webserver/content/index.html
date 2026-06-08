@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pico W</title>
+  <style>
+    body { font-family: sans-serif; max-width: 480px; margin: 2rem auto; padding: 0 1rem; }
+    h1   { color: #c62828; margin-bottom: 0.25rem; }
+    p    { color: #555; margin-top: 0; }
+    #status { font-size: 1.1rem; margin-top: 1.5rem; }
+  </style>
+</head>
+<body>
+  <h1>Pico W</h1>
+  <p>Raspberry Pi Pico W — lwIP HTTP server</p>
+  <div id="status">Loading…</div>
+  <script>
+    function poll() {
+      fetch('/status')
+        .then(r => r.text())
+        .then(t => document.getElementById('status').textContent = t)
+        .catch(() => document.getElementById('status').textContent = 'offline');
+    }
+    poll();
+    setInterval(poll, 2000);
+  </script>
+</body>
+</html>

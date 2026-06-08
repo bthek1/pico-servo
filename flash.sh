@@ -1,7 +1,9 @@
 #!/bin/bash
 set -e
 
-TARGET="${1:-main}"
+SECRETS="${BASH_SOURCE[0]%/*}/secrets.h"
+_DEFAULT=$([ -f "$SECRETS" ] && grep -oP '(?<=#define DEFAULT_TARGET\s{1,20}")[^"]+' "$SECRETS" || echo "main")
+TARGET="${1:-$_DEFAULT}"
 MOUNT="${PICO_MOUNT:-/media/$(whoami)/RPI-RP2}"
 BUILD_DIR="build/targets/$TARGET"
 UF2=$(find "$BUILD_DIR" -maxdepth 1 -name "*.uf2" 2>/dev/null | head -1)
