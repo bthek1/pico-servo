@@ -143,6 +143,9 @@ int main() {
 
     s_next_blink = make_timeout_time_ms(s_blink_ms);
 
+    char cmd_buf[64];
+    int  cmd_len = 0;
+
     while (true) {
         wifi_poll();
 
@@ -152,8 +155,25 @@ int main() {
         }
 
         int c = getchar_timeout_us(0);
-        if (c != PICO_ERROR_TIMEOUT && s_serial_len < SERIAL_BUF_SZ - 1) {
-            s_serial_buf[s_serial_len++] = (char)c;
+        if (c == PICO_ERROR_TIMEOUT) continue;
+
+        if (c == '\r' || c == '\n') {
+            if (cmd_len > 0) {
+                cmd_buf[cmd_len] = '\0';
+                if (cmd_len == 2 &&
+                    (cmd_buf[0] == 'i' || cmd_buf[0] == 'I') &&
+                    (cmd_buf[1] == 'p' || cmd_buf[1] == 'P')) {
+                    serial_println("ip: %s", wifi_get_ip());
+                } else {
+                    for (int i = 0; i < cmd_len && s_serial_len < SERIAL_BUF_SZ - 1; i++)
+                        s_serial_buf[s_serial_len++] = cmd_buf[i];
+                    if (s_serial_len < SERIAL_BUF_SZ - 1)
+                        s_serial_buf[s_serial_len++] = '\n';
+                }
+                cmd_len = 0;
+            }
+        } else if (cmd_len < (int)sizeof(cmd_buf) - 1) {
+            cmd_buf[cmd_len++] = (char)c;
         }
     }
 }
