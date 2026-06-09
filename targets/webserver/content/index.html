@@ -8,7 +8,7 @@
     :root {
       --bg: #0d0d0d; --surface: #1a1a1a; --border: #2a2a2a;
       --accent: #e53935; --text: #e0e0e0; --text-muted: #666;
-      --green: #43a047; --mono: 'Courier New', monospace;
+      --green: #43a047; --orange: #ff9800; --mono: 'Courier New', monospace;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif;
@@ -43,42 +43,47 @@
               border-radius: 4px; padding: .4rem .6rem; font-family: var(--mono); font-size: .85rem; }
     #tinput:focus { outline: none; border-color: #444; }
 
-    /* Shared buttons */
+    /* Shared */
     .btn { padding: .45rem .9rem; border: 1px solid var(--border); border-radius: 4px;
            background: var(--surface); color: var(--text); cursor: pointer; font-size: .85rem;
            transition: background .15s, border-color .15s; }
     .btn:hover { background: #222; border-color: #444; }
     .btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
-
-    /* Light panel */
-    .light-card { display: flex; flex-direction: column; gap: 1rem; }
+    .btn-group { display: flex; gap: .5rem; }
+    .presets { display: flex; gap: .5rem; flex-wrap: wrap; }
     .section-label { color: var(--text-muted); font-size: .78rem; text-transform: uppercase;
                      letter-spacing: .05em; margin-bottom: .35rem; }
+    .slider-wrap { display: flex; flex-direction: column; gap: .4rem; }
+    .slider-row  { display: flex; align-items: center; gap: .5rem; }
+    .slider-row span { color: var(--text-muted); font-size: .78rem; white-space: nowrap; min-width: 3.2rem; }
+    .slider-row span:last-child { text-align: right; }
+    input[type=range] { flex: 1; accent-color: var(--accent); cursor: pointer; }
+    .slider-val { text-align: center; color: var(--text-muted); font-size: .85rem; }
+
+    /* Light */
+    .light-card { display: flex; flex-direction: column; gap: 1rem; }
     .led-indicator { display: flex; align-items: center; justify-content: center; gap: .75rem; padding: .6rem 0; }
     .led-dot { width: 16px; height: 16px; border-radius: 50%; background: #444; transition: background .3s; }
     .led-dot.on    { background: var(--green); box-shadow: 0 0 8px var(--green); }
     @keyframes ldpulse { 0%,100%{opacity:1} 50%{opacity:.2} }
     .led-dot.blink { background: var(--green); animation: ldpulse .2s infinite; }
     .led-label { font-size: .95rem; font-weight: 600; }
-    .btn-group { display: flex; gap: .5rem; }
-    .presets { display: flex; gap: .5rem; flex-wrap: wrap; }
 
-    .slider-wrap { display: flex; flex-direction: column; gap: .4rem; }
-    .slider-row  { display: flex; align-items: center; gap: .5rem; }
-    .slider-row span { color: var(--text-muted); font-size: .78rem; white-space: nowrap; }
-    input[type=range] { flex: 1; accent-color: var(--accent); cursor: pointer; }
-    .slider-val { text-align: center; color: var(--text-muted); font-size: .85rem; }
-
-    /* Servo panel */
-    .servo-card { display: flex; flex-direction: column; align-items: center; gap: 1rem; }
-    .arc-wrap { display: flex; justify-content: center; }
-    .deg-display { font-size: 2.5rem; font-weight: 700; color: var(--accent); text-align: center; }
-    .servo-controls { width: 100%; display: flex; flex-direction: column; gap: .75rem; }
-
-    /* Continuous servo */
+    /* Servo */
+    .servo-card { display: flex; flex-direction: column; gap: 1rem; width: 100%; }
+    .pulse-display { font-size: 2.2rem; font-weight: 700; color: var(--accent); text-align: center; }
+    .secondary-label { font-size: 1rem; color: var(--text-muted); text-align: center; margin-top: -.5rem; }
+    .servo-controls { display: flex; flex-direction: column; gap: .75rem; width: 100%; }
     .btn-stop { background: var(--accent); border-color: var(--accent); color: #fff;
-                font-size: 1.1rem; font-weight: 700; padding: .65rem 2rem; width: 100%; }
+                font-size: 1rem; font-weight: 700; padding: .6rem; width: 100%; }
     .btn-stop:hover { background: #c62828; border-color: #c62828; }
+    .btn-centre { background: #1b2e1b; border-color: var(--green); color: var(--green);
+                  font-size: .9rem; font-weight: 600; padding: .5rem; width: 100%; }
+    .btn-centre:hover { background: #243824; }
+    .warning-banner { background: #1f1200; border: 1px solid var(--orange); border-radius: 4px;
+                      color: var(--orange); font-size: .82rem; padding: .5rem .75rem;
+                      display: none; gap: .4rem; align-items: flex-start; }
+    .warning-banner.visible { display: flex; }
   </style>
 </head>
 <body>
@@ -146,7 +151,7 @@
       </div>
     </div>
 
-    <!-- Servo (populated dynamically after fetching /servo_info.txt) -->
+    <!-- Servo (built dynamically after /servo_info.txt loads) -->
     <div id="panel-servo" class="panel card">
       <div id="servo-card" class="servo-card">
         <div style="color:var(--text-muted)">Loading…</div>
@@ -156,13 +161,22 @@
 
   <script>
     const state = { ledMode: 'off', blinkMs: 100, errorCount: 0 };
-    let servoType = 'positional';
-    let servoBusy = false;
-    let srvTimer  = null;
+
+    // Servo state
+    let servoType  = 'positional'; // from firmware
+    let servoMode  = 'positional'; // UI selection (may differ)
+    let servoRange = 'standard';   // 'standard' | 'extended'
+    let servoBusy  = false;
+    let srvTimer   = null;
+
+    const RANGES = {
+      standard: { min: 1000, max: 2000 },
+      extended: { min: 600,  max: 2400 },
+    };
 
     document.getElementById('ip').textContent = location.hostname;
 
-    // --- Uptime counter ---
+    // --- Uptime ---
     let uptimeSec = 0;
     setInterval(() => {
       uptimeSec++;
@@ -179,14 +193,14 @@
       document.getElementById('panel-' + btn.dataset.tab).classList.add('visible');
     }
 
-    // --- General fetch wrapper ---
+    // --- General fetch ---
     function cmd(url) {
       fetch(url)
         .then(() => { state.errorCount = 0; document.getElementById('dot').className = ''; })
         .catch(() => { state.errorCount++; if (state.errorCount >= 3) document.getElementById('dot').className = 'error'; });
     }
 
-    // --- Servo fetch wrapper (in-flight guard) ---
+    // --- Servo fetch (in-flight guard) ---
     function servoCmd(url) {
       if (servoBusy) return;
       servoBusy = true;
@@ -196,86 +210,164 @@
         .finally(() => { servoBusy = false; });
     }
 
-    // --- Servo UI builder ---
+    // --- Secondary label ---
+    function secondaryLabel(pulse) {
+      const r = RANGES[servoRange];
+      if (servoMode === 'continuous') {
+        if (Math.abs(pulse - 1500) < 5) return 'STOP';
+        if (pulse > 1500) return 'FWD ' + Math.round((pulse - 1500) / (r.max - 1500) * 100) + '%';
+        return 'REV ' + Math.round((1500 - pulse) / (1500 - r.min) * 100) + '%';
+      } else {
+        const deg = Math.round((pulse - r.min) / (r.max - r.min) * 180);
+        return '≈ ' + Math.max(0, Math.min(180, deg)) + '°';
+      }
+    }
+
+    // --- Build servo UI ---
     function buildServoUI(text) {
       const p = {};
       text.trim().split('\n').forEach(l => { const [k,v]=l.split('='); if(k) p[k.trim()]=(v||'').trim(); });
       servoType = p.type || 'positional';
+      servoMode = servoType;
       const card = document.getElementById('servo-card');
+      const r = RANGES[servoRange];
 
-      if (servoType === 'continuous') {
-        const initTrim = parseInt(p.stop || '1500') - 1500;
-        card.innerHTML =
-          '<div id="speed-display" class="deg-display">STOP</div>' +
-          '<div class="servo-controls">' +
-            '<div class="slider-wrap">' +
-              '<div class="slider-row">' +
-                '<span>REV</span>' +
-                '<input id="speed-slider" type="range" min="-100" max="100" value="0"' +
-                '       oninput="onSpeedSlider(this.value)">' +
-                '<span>FWD</span>' +
-              '</div>' +
-              '<div id="speed-val" class="slider-val">0%</div>' +
-            '</div>' +
-            '<button class="btn btn-stop" onclick="stopServo()">&#9632; STOP</button>' +
-            '<div>' +
-              '<div class="section-label">Stop Trim (&micro;s)</div>' +
-              '<div class="slider-wrap">' +
-                '<div class="slider-row">' +
-                  '<span>&minus;50</span>' +
-                  '<input id="trim-slider" type="range" min="-50" max="50" value="' + initTrim + '"' +
-                  '       onchange="onTrimChange(this.value)">' +
-                  '<span>+50</span>' +
-                '</div>' +
-                '<div id="trim-val" class="slider-val">' + (initTrim >= 0 ? '+' : '') + initTrim + ' µs</div>' +
-              '</div>' +
-            '</div>' +
-          '</div>';
-        servoCmd('/servo?stop');
-      } else {
-        card.innerHTML =
-          '<div class="arc-wrap">' +
-            '<svg viewBox="0 0 200 110" width="200" height="110">' +
-              '<path d="M10,100 A90,90 0 0,1 190,100"' +
-              '      fill="none" stroke="#2a2a2a" stroke-width="6" stroke-linecap="round"/>' +
-              '<line id="needle" x1="100" y1="100" x2="100" y2="15"' +
-              '      stroke="#e53935" stroke-width="3" stroke-linecap="round"' +
-              '      transform="rotate(-90, 100, 100)"/>' +
-              '<circle cx="100" cy="100" r="5" fill="#e53935"/>' +
-            '</svg>' +
+      card.innerHTML =
+        '<div>' +
+          '<div class="section-label">Mode</div>' +
+          '<div class="btn-group">' +
+            '<button class="btn' + (servoMode==='positional'?' active':'') + '" id="btn-mode-pos" onclick="setMode(\'positional\')">Positional</button>' +
+            '<button class="btn' + (servoMode==='continuous'?' active':'') + '" id="btn-mode-cont" onclick="setMode(\'continuous\')">Continuous</button>' +
           '</div>' +
-          '<div id="deg-display" class="deg-display">90&deg;</div>' +
-          '<div class="servo-controls">' +
+        '</div>' +
+        '<div id="pulse-display" class="pulse-display">1500 µs</div>' +
+        '<div id="secondary-label" class="secondary-label">' + secondaryLabel(1500) + '</div>' +
+        '<div class="servo-controls">' +
+          '<div class="slider-wrap">' +
+            '<div class="slider-row">' +
+              '<span id="range-min-lbl">' + r.min + ' µs</span>' +
+              '<input id="pulse-slider" type="range" min="' + r.min + '" max="' + r.max + '" value="1500"' +
+              '       oninput="onPulseSlider(this.value)">' +
+              '<span id="range-max-lbl">' + r.max + ' µs</span>' +
+            '</div>' +
+            '<div class="slider-val">Pulse Width (µs)</div>' +
+          '</div>' +
+          '<div>' +
+            '<div class="section-label">Range</div>' +
+            '<div class="btn-group">' +
+              '<button class="btn active" id="btn-range-std" onclick="setRange(\'standard\')">Standard (1000–2000 µs)</button>' +
+              '<button class="btn" id="btn-range-ext" onclick="setRange(\'extended\')">Extended (600–2400 µs) ⚠</button>' +
+            '</div>' +
+          '</div>' +
+          '<div id="range-warning" class="warning-banner">' +
+            '⚠&nbsp; Extended range may damage servo gears. Avoid sustained use at limits.' +
+          '</div>' +
+          '<div id="trim-section" style="display:' + (servoMode==='continuous'?'block':'none') + '">' +
+            '<div class="section-label">Stop Trim (µs)</div>' +
             '<div class="slider-wrap">' +
               '<div class="slider-row">' +
-                '<span>0&deg;</span>' +
-                '<input id="servo-slider" type="range" min="0" max="180" value="90"' +
-                '       oninput="onServoSlider(this.value)">' +
-                '<span>180&deg;</span>' +
+                '<span>−50</span>' +
+                '<input id="trim-slider" type="range" min="-50" max="50" value="0"' +
+                '       onchange="onTrimChange(this.value)">' +
+                '<span>+50</span>' +
               '</div>' +
+              '<div id="trim-val" class="slider-val">0 µs</div>' +
             '</div>' +
-            '<div>' +
-              '<div class="section-label">Presets</div>' +
-              '<div class="presets">' +
-                '<button class="btn" onclick="setServo(0)">0&deg;</button>' +
-                '<button class="btn" onclick="setServo(45)">45&deg;</button>' +
-                '<button class="btn" onclick="setServo(90)">Centre</button>' +
-                '<button class="btn" onclick="setServo(135)">135&deg;</button>' +
-                '<button class="btn" onclick="setServo(180)">180&deg;</button>' +
-              '</div>' +
-            '</div>' +
-          '</div>';
-        setServo(90);
-      }
+          '</div>' +
+          '<button id="btn-action" class="btn ' + (servoMode==='continuous'?'btn-stop':'btn-centre') + '"' +
+          '        onclick="servoAction()">' + (servoMode==='continuous'?'■ STOP':'Centre (1500 µs)') + '</button>' +
+        '</div>';
+
+      servoCmd('/servo?pulse=1500');
     }
 
     fetch('/servo_info.txt')
       .then(r => r.text()).then(buildServoUI)
-      .catch(() => buildServoUI('type=positional\n'));
+      .catch(() => buildServoUI('type=positional\nmin_us=1000\nmax_us=2000\nstop_us=1500\n'));
 
     window.addEventListener('beforeunload', () => {
-      if (servoType === 'continuous') navigator.sendBeacon('/servo?stop');
+      if (servoMode === 'continuous') navigator.sendBeacon('/servo?stop');
     });
+
+    // --- Mode toggle ---
+    function setMode(mode) {
+      servoMode = mode;
+      const pos = document.getElementById('btn-mode-pos');
+      const cont = document.getElementById('btn-mode-cont');
+      if (pos)  pos.classList.toggle('active',  mode === 'positional');
+      if (cont) cont.classList.toggle('active', mode === 'continuous');
+
+      const trim = document.getElementById('trim-section');
+      if (trim) trim.style.display = mode === 'continuous' ? 'block' : 'none';
+
+      const btnAction = document.getElementById('btn-action');
+      if (btnAction) {
+        btnAction.className = 'btn ' + (mode === 'continuous' ? 'btn-stop' : 'btn-centre');
+        btnAction.textContent = mode === 'continuous' ? '■ STOP' : 'Centre (1500 µs)';
+      }
+
+      const sl = document.getElementById('secondary-label');
+      const slider = document.getElementById('pulse-slider');
+      if (sl && slider) sl.textContent = secondaryLabel(parseInt(slider.value));
+    }
+
+    // --- Range toggle ---
+    function setRange(range) {
+      servoRange = range;
+      const r = RANGES[range];
+
+      document.getElementById('btn-range-std').classList.toggle('active', range === 'standard');
+      document.getElementById('btn-range-ext').classList.toggle('active', range === 'extended');
+
+      const warning = document.getElementById('range-warning');
+      if (warning) warning.classList.toggle('visible', range === 'extended');
+
+      const slider   = document.getElementById('pulse-slider');
+      const minLbl   = document.getElementById('range-min-lbl');
+      const maxLbl   = document.getElementById('range-max-lbl');
+      if (minLbl) minLbl.textContent = r.min + ' µs';
+      if (maxLbl) maxLbl.textContent = r.max + ' µs';
+
+      if (slider) {
+        slider.min = r.min;
+        slider.max = r.max;
+        const clamped = Math.max(r.min, Math.min(r.max, parseInt(slider.value)));
+        slider.value = clamped;
+        updatePulseDisplay(clamped);
+      }
+    }
+
+    // --- Pulse slider ---
+    function updatePulseDisplay(val) {
+      const pd = document.getElementById('pulse-display');
+      const sl = document.getElementById('secondary-label');
+      if (pd) pd.textContent = val + ' µs';
+      if (sl) sl.textContent = secondaryLabel(val);
+    }
+
+    function onPulseSlider(val) {
+      val = parseInt(val);
+      updatePulseDisplay(val);
+      clearTimeout(srvTimer);
+      srvTimer = setTimeout(() => servoCmd('/servo?pulse=' + val), 100);
+    }
+
+    // --- Action button (STOP or Centre) ---
+    function servoAction() {
+      const slider = document.getElementById('pulse-slider');
+      if (slider) slider.value = 1500;
+      updatePulseDisplay(1500);
+      if (servoMode === 'continuous') servoCmd('/servo?stop');
+      else servoCmd('/servo?pulse=1500');
+    }
+
+    // --- Trim (continuous) ---
+    function onTrimChange(val) {
+      val = parseInt(val);
+      const tv = document.getElementById('trim-val');
+      if (tv) tv.textContent = (val >= 0 ? '+' : '') + val + ' µs';
+      servoCmd('/servo?trim=' + val);
+    }
 
     // --- Terminal ---
     const out = document.getElementById('output');
@@ -308,14 +400,14 @@
       if (ms !== undefined) state.blinkMs = ms;
       const dot = document.getElementById('led-dot');
       const lbl = document.getElementById('led-label');
-      dot.className = 'led-dot' + (mode === 'on' ? ' on' : mode === 'blink' ? ' blink' : '');
-      if (mode === 'blink') dot.style.animationDuration = (state.blinkMs * 2) + 'ms';
+      dot.className = 'led-dot' + (mode==='on'?' on':mode==='blink'?' blink':'');
+      if (mode==='blink') dot.style.animationDuration = (state.blinkMs*2) + 'ms';
       lbl.textContent = mode.toUpperCase();
-      lbl.style.color = mode === 'off' ? 'var(--text-muted)' : 'var(--text)';
+      lbl.style.color = mode==='off' ? 'var(--text-muted)' : 'var(--text)';
       ['on','blink','off'].forEach(m =>
         document.getElementById('btn-' + m).classList.toggle('active', m === mode));
       let url = '/led?state=' + mode;
-      if (mode === 'blink') url += '&ms=' + state.blinkMs;
+      if (mode==='blink') url += '&ms=' + state.blinkMs;
       cmd(url);
     }
 
@@ -323,9 +415,9 @@
       val = parseInt(val);
       state.blinkMs = val;
       document.getElementById('blink-val').textContent =
-        val < 1000 ? val + ' ms' : (val / 1000).toFixed(1) + ' s';
+        val < 1000 ? val + ' ms' : (val/1000).toFixed(1) + ' s';
       if (state.ledMode === 'blink') {
-        document.getElementById('led-dot').style.animationDuration = (val * 2) + 'ms';
+        document.getElementById('led-dot').style.animationDuration = (val*2) + 'ms';
         cmd('/led?state=blink&ms=' + val);
       }
     }
@@ -334,66 +426,6 @@
       document.getElementById('blink-slider').value = ms;
       onBlinkChange(ms);
       setLed('blink', ms);
-    }
-
-    // --- Positional servo ---
-    function setServo(deg) {
-      deg = Math.round(deg);
-      const sl = document.getElementById('servo-slider');
-      if (sl) sl.value = deg;
-      const dd = document.getElementById('deg-display');
-      if (dd) dd.textContent = deg + '°';
-      const needle = document.getElementById('needle');
-      if (needle) needle.setAttribute('transform', 'rotate(' + (deg - 90) + ', 100, 100)');
-      servoCmd('/servo?deg=' + deg);
-    }
-
-    function onServoSlider(val) {
-      val = parseInt(val);
-      const dd = document.getElementById('deg-display');
-      if (dd) dd.textContent = val + '°';
-      const needle = document.getElementById('needle');
-      if (needle) needle.setAttribute('transform', 'rotate(' + (val - 90) + ', 100, 100)');
-      clearTimeout(srvTimer);
-      srvTimer = setTimeout(() => servoCmd('/servo?deg=' + val), 100);
-    }
-
-    // --- Continuous servo ---
-    function stopServo() {
-      const sl = document.getElementById('speed-slider');
-      if (sl) sl.value = 0;
-      const sd = document.getElementById('speed-display');
-      if (sd) sd.textContent = 'STOP';
-      const sv = document.getElementById('speed-val');
-      if (sv) sv.textContent = '0%';
-      servoCmd('/servo?stop');
-    }
-
-    function onSpeedSlider(val) {
-      val = parseInt(val);
-      const sd = document.getElementById('speed-display');
-      const sv = document.getElementById('speed-val');
-      if (val === 0) {
-        if (sd) sd.textContent = 'STOP';
-        if (sv) sv.textContent = '0%';
-      } else {
-        const dir = val > 0 ? 'FWD' : 'REV';
-        const pct = Math.abs(val);
-        if (sd) sd.textContent = dir + ' ' + pct + '%';
-        if (sv) sv.textContent = (val > 0 ? '+' : '') + val + '%';
-      }
-      clearTimeout(srvTimer);
-      srvTimer = setTimeout(() => {
-        if (val === 0) servoCmd('/servo?stop');
-        else servoCmd('/servo?speed=' + val);
-      }, 100);
-    }
-
-    function onTrimChange(val) {
-      val = parseInt(val);
-      const tv = document.getElementById('trim-val');
-      if (tv) tv.textContent = (val >= 0 ? '+' : '') + val + ' µs';
-      servoCmd('/servo?trim=' + val);
     }
   </script>
 </body>

@@ -88,13 +88,16 @@ static const char *cgi_led(int iIndex, int iNumParams, char *pcParam[], char *pc
     return "/ok.txt";
 }
 
-// --- CGI: /servo?deg=<0-180> | ?speed=<-100..100> | ?trim=<-50..50> | ?stop
+// --- CGI: /servo?pulse=<µs> | ?deg=<0-180> | ?speed=<-100..100> | ?trim=<-50..50> | ?stop
 
 static const char *cgi_servo(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]) {
     (void)iIndex;
     bool do_stop = false;
     for (int i = 0; i < iNumParams; i++) {
-        if (strcmp(pcParam[i], "deg") == 0) {
+        if (strcmp(pcParam[i], "pulse") == 0) {
+            int pulse = atoi(pcValue[i]);
+            if (pulse > 0) servo_set_us(SERVO_GPIO, (uint16_t)pulse);
+        } else if (strcmp(pcParam[i], "deg") == 0) {
             float deg = (float)atof(pcValue[i]);
             if (deg < 0.0f)   deg = 0.0f;
             if (deg > 180.0f) deg = 180.0f;
@@ -137,14 +140,12 @@ int fs_open_custom(struct fs_file *file, const char *name) {
         return 1;
     }
     if (strcmp(name, "/servo_info.txt") == 0) {
-        if (s_servo_model->type == SERVO_CONTINUOUS) {
-            s_servo_info_len = snprintf(s_servo_info_buf, sizeof(s_servo_info_buf),
-                "type=continuous\nstop=%d\n",
-                (int)s_servo_model->stop_us + s_servo_trim_us);
-        } else {
-            s_servo_info_len = snprintf(s_servo_info_buf, sizeof(s_servo_info_buf),
-                "type=positional\nmin=0\nmax=180\n");
-        }
+        s_servo_info_len = snprintf(s_servo_info_buf, sizeof(s_servo_info_buf),
+            "type=%s\nmin_us=%d\nmax_us=%d\nstop_us=%d\n",
+            s_servo_model->type == SERVO_CONTINUOUS ? "continuous" : "positional",
+            (int)s_servo_model->min_us,
+            (int)s_servo_model->max_us,
+            (int)s_servo_model->stop_us + s_servo_trim_us);
         file->data  = s_servo_info_buf;
         file->len   = s_servo_info_len;
         file->index = s_servo_info_len;
