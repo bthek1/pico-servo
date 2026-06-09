@@ -2,6 +2,7 @@
 #include "pico/cyw43_arch.h"
 #include "lwip/netif.h"
 #include "lwip/ip4_addr.h"
+#include "lwip/dhcp.h"
 
 wifi_result_t wifi_connect(const char *ssid, const char *password) {
     if (cyw43_arch_init() != 0) return WIFI_ERR_FAIL;
@@ -29,6 +30,15 @@ void wifi_led_on(void) {
 
 void wifi_led_off(void) {
     cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
+}
+
+void wifi_set_static_ip(const char *ip, const char *mask, const char *gw) {
+    ip4_addr_t ipaddr, netmask, gateway;
+    ip4addr_aton(ip,   &ipaddr);
+    ip4addr_aton(mask, &netmask);
+    ip4addr_aton(gw,   &gateway);
+    dhcp_stop(netif_list);
+    netif_set_addr(netif_list, &ipaddr, &netmask, &gateway);
 }
 
 void wifi_led_toggle(void) {
