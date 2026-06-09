@@ -5,11 +5,11 @@ default:
 
 # pull, compile, and flash a target (default: from secrets.h)
 [group('workflow')]
-deploy target='': pull push-secrets (compile target) (flash target) monitor
+deploy target='': pull push-secrets (compile target) (flash target) _wait-tty monitor
 
 # pull, clean compile, and flash a target (default: from secrets.h)
 [group('workflow')]
-deploy-clean target='': pull push-secrets (compile-clean target) (flash target) monitor
+deploy-clean target='': pull push-secrets (compile-clean target) (flash target) _wait-tty monitor
 
 # ── Secrets ───────────────────────────────────────────────────────────────────
 
@@ -48,3 +48,7 @@ flash target='':
 [group('device')]
 monitor:
     ssh pi "picocom -b 115200 /dev/ttyACM0"
+
+[private]
+_wait-tty:
+    @until ssh pi "test -e /dev/ttyACM0"; do sleep 1; done
