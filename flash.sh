@@ -18,7 +18,7 @@ if [ ! -d "$MOUNT" ]; then
     if command -v picotool &>/dev/null; then
         echo "Rebooting Pico into BOOTSEL mode..."
         picotool reboot -f -u 2>/dev/null || true
-        for i in $(seq 1 5); do
+        for i in $(seq 1 10); do
             sleep 1
             [ -d "$MOUNT" ] && break
         done
