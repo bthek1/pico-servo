@@ -135,7 +135,7 @@ int main() {
         serial_println("wifi failed");
         return 1;
     }
-    wifi_set_static_ip("192.168.2.50", "255.255.255.0", "192.168.2.1");
+    wifi_set_static_ip("192.168.2.55", "255.255.255.0", "192.168.2.1");
     serial_println("ip: %s", wifi_get_ip());
 
     httpd_init();
