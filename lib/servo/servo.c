@@ -23,6 +23,6 @@ void servo_set_us(uint gpio, uint16_t pulse_us) {
 void servo_set_deg(uint gpio, float degrees) {
     if (degrees < 0.0f) degrees = 0.0f;
     if (degrees > 180.0f) degrees = 180.0f;
-    uint16_t pulse_us = (uint16_t)(1000.0f + degrees / 180.0f * 1000.0f);
+    uint16_t pulse_us = (uint16_t)(500.0f + degrees / 180.0f * 2000.0f);
     servo_set_us(gpio, pulse_us);
 }
