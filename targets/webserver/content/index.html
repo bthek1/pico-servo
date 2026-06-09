@@ -74,6 +74,11 @@
     .arc-wrap { display: flex; justify-content: center; }
     .deg-display { font-size: 2.5rem; font-weight: 700; color: var(--accent); text-align: center; }
     .servo-controls { width: 100%; display: flex; flex-direction: column; gap: .75rem; }
+
+    /* Continuous servo */
+    .btn-stop { background: var(--accent); border-color: var(--accent); color: #fff;
+                font-size: 1.1rem; font-weight: 700; padding: .65rem 2rem; width: 100%; }
+    .btn-stop:hover { background: #c62828; border-color: #c62828; }
   </style>
 </head>
 <body>
@@ -141,50 +146,23 @@
       </div>
     </div>
 
-    <!-- Servo -->
+    <!-- Servo (populated dynamically after fetching /servo_info.txt) -->
     <div id="panel-servo" class="panel card">
-      <div class="servo-card">
-        <div class="arc-wrap">
-          <svg viewBox="0 0 200 110" width="200" height="110">
-            <path d="M10,100 A90,90 0 0,1 190,100"
-                  fill="none" stroke="#2a2a2a" stroke-width="6" stroke-linecap="round"/>
-            <line id="needle" x1="100" y1="100" x2="100" y2="15"
-                  stroke="#e53935" stroke-width="3" stroke-linecap="round"
-                  transform="rotate(-90, 100, 100)"/>
-            <circle cx="100" cy="100" r="5" fill="#e53935"/>
-          </svg>
-        </div>
-        <div id="deg-display" class="deg-display">90°</div>
-        <div class="servo-controls">
-          <div class="slider-wrap">
-            <div class="slider-row">
-              <span>0°</span>
-              <input id="servo-slider" type="range" min="0" max="180" value="90"
-                     oninput="onServoSlider(this.value)">
-              <span>180°</span>
-            </div>
-          </div>
-          <div>
-            <div class="section-label">Presets</div>
-            <div class="presets">
-              <button class="btn" onclick="setServo(0)">0°</button>
-              <button class="btn" onclick="setServo(45)">45°</button>
-              <button class="btn" onclick="setServo(90)">90°</button>
-              <button class="btn" onclick="setServo(135)">135°</button>
-              <button class="btn" onclick="setServo(180)">180°</button>
-            </div>
-          </div>
-        </div>
+      <div id="servo-card" class="servo-card">
+        <div style="color:var(--text-muted)">Loading…</div>
       </div>
     </div>
   </main>
 
   <script>
-    const state = { ledMode: 'off', blinkMs: 100, servoDeg: 90, errorCount: 0 };
+    const state = { ledMode: 'off', blinkMs: 100, errorCount: 0 };
+    let servoType = 'positional';
+    let servoBusy = false;
+    let srvTimer  = null;
 
     document.getElementById('ip').textContent = location.hostname;
 
-    // --- Uptime counter (client-side) ---
+    // --- Uptime counter ---
     let uptimeSec = 0;
     setInterval(() => {
       uptimeSec++;
@@ -201,26 +179,109 @@
       document.getElementById('panel-' + btn.dataset.tab).classList.add('visible');
     }
 
-    // --- Fetch wrapper ---
+    // --- General fetch wrapper ---
     function cmd(url) {
-      fetch(url).then(() => {
-        state.errorCount = 0;
-        document.getElementById('dot').className = '';
-      }).catch(() => {
-        state.errorCount++;
-        if (state.errorCount >= 3) document.getElementById('dot').className = 'error';
-      });
+      fetch(url)
+        .then(() => { state.errorCount = 0; document.getElementById('dot').className = ''; })
+        .catch(() => { state.errorCount++; if (state.errorCount >= 3) document.getElementById('dot').className = 'error'; });
     }
+
+    // --- Servo fetch wrapper (in-flight guard) ---
+    function servoCmd(url) {
+      if (servoBusy) return;
+      servoBusy = true;
+      fetch(url)
+        .then(() => { state.errorCount = 0; document.getElementById('dot').className = ''; })
+        .catch(() => { state.errorCount++; if (state.errorCount >= 3) document.getElementById('dot').className = 'error'; })
+        .finally(() => { servoBusy = false; });
+    }
+
+    // --- Servo UI builder ---
+    function buildServoUI(text) {
+      const p = {};
+      text.trim().split('\n').forEach(l => { const [k,v]=l.split('='); if(k) p[k.trim()]=(v||'').trim(); });
+      servoType = p.type || 'positional';
+      const card = document.getElementById('servo-card');
+
+      if (servoType === 'continuous') {
+        const initTrim = parseInt(p.stop || '1500') - 1500;
+        card.innerHTML =
+          '<div id="speed-display" class="deg-display">STOP</div>' +
+          '<div class="servo-controls">' +
+            '<div class="slider-wrap">' +
+              '<div class="slider-row">' +
+                '<span>REV</span>' +
+                '<input id="speed-slider" type="range" min="-100" max="100" value="0"' +
+                '       oninput="onSpeedSlider(this.value)">' +
+                '<span>FWD</span>' +
+              '</div>' +
+              '<div id="speed-val" class="slider-val">0%</div>' +
+            '</div>' +
+            '<button class="btn btn-stop" onclick="stopServo()">&#9632; STOP</button>' +
+            '<div>' +
+              '<div class="section-label">Stop Trim (&micro;s)</div>' +
+              '<div class="slider-wrap">' +
+                '<div class="slider-row">' +
+                  '<span>&minus;50</span>' +
+                  '<input id="trim-slider" type="range" min="-50" max="50" value="' + initTrim + '"' +
+                  '       onchange="onTrimChange(this.value)">' +
+                  '<span>+50</span>' +
+                '</div>' +
+                '<div id="trim-val" class="slider-val">' + (initTrim >= 0 ? '+' : '') + initTrim + ' µs</div>' +
+              '</div>' +
+            '</div>' +
+          '</div>';
+        servoCmd('/servo?stop');
+      } else {
+        card.innerHTML =
+          '<div class="arc-wrap">' +
+            '<svg viewBox="0 0 200 110" width="200" height="110">' +
+              '<path d="M10,100 A90,90 0 0,1 190,100"' +
+              '      fill="none" stroke="#2a2a2a" stroke-width="6" stroke-linecap="round"/>' +
+              '<line id="needle" x1="100" y1="100" x2="100" y2="15"' +
+              '      stroke="#e53935" stroke-width="3" stroke-linecap="round"' +
+              '      transform="rotate(-90, 100, 100)"/>' +
+              '<circle cx="100" cy="100" r="5" fill="#e53935"/>' +
+            '</svg>' +
+          '</div>' +
+          '<div id="deg-display" class="deg-display">90&deg;</div>' +
+          '<div class="servo-controls">' +
+            '<div class="slider-wrap">' +
+              '<div class="slider-row">' +
+                '<span>0&deg;</span>' +
+                '<input id="servo-slider" type="range" min="0" max="180" value="90"' +
+                '       oninput="onServoSlider(this.value)">' +
+                '<span>180&deg;</span>' +
+              '</div>' +
+            '</div>' +
+            '<div>' +
+              '<div class="section-label">Presets</div>' +
+              '<div class="presets">' +
+                '<button class="btn" onclick="setServo(0)">0&deg;</button>' +
+                '<button class="btn" onclick="setServo(45)">45&deg;</button>' +
+                '<button class="btn" onclick="setServo(90)">Centre</button>' +
+                '<button class="btn" onclick="setServo(135)">135&deg;</button>' +
+                '<button class="btn" onclick="setServo(180)">180&deg;</button>' +
+              '</div>' +
+            '</div>' +
+          '</div>';
+        setServo(90);
+      }
+    }
+
+    fetch('/servo_info.txt')
+      .then(r => r.text()).then(buildServoUI)
+      .catch(() => buildServoUI('type=positional\n'));
+
+    window.addEventListener('beforeunload', () => {
+      if (servoType === 'continuous') navigator.sendBeacon('/servo?stop');
+    });
 
     // --- Terminal ---
     const out = document.getElementById('output');
     const inp = document.getElementById('tinput');
 
-    function append(text) {
-      out.textContent += text;
-      out.scrollTop = out.scrollHeight;
-    }
-
+    function append(text) { out.textContent += text; out.scrollTop = out.scrollHeight; }
     function send() {
       const text = inp.value.trim();
       if (!text) return;
@@ -228,38 +289,31 @@
       append('> ' + text + '\n');
       fetch('/send?data=' + encodeURIComponent(text)).catch(() => append('[send failed]\n'));
     }
-
     inp.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
 
     setInterval(() => {
-      fetch('/recv.txt')
-        .then(r => r.text())
-        .then(t => {
-          if (t) append(t);
-          state.errorCount = 0;
-          document.getElementById('dot').className = '';
-        })
-        .catch(() => {
-          state.errorCount++;
-          if (state.errorCount >= 3) document.getElementById('dot').className = 'error';
-        });
+      fetch('/recv.txt').then(r => r.text()).then(t => {
+        if (t) append(t);
+        state.errorCount = 0;
+        document.getElementById('dot').className = '';
+      }).catch(() => {
+        state.errorCount++;
+        if (state.errorCount >= 3) document.getElementById('dot').className = 'error';
+      });
     }, 200);
 
     // --- LED ---
     function setLed(mode, ms) {
       state.ledMode = mode;
       if (ms !== undefined) state.blinkMs = ms;
-
       const dot = document.getElementById('led-dot');
       const lbl = document.getElementById('led-label');
       dot.className = 'led-dot' + (mode === 'on' ? ' on' : mode === 'blink' ? ' blink' : '');
       if (mode === 'blink') dot.style.animationDuration = (state.blinkMs * 2) + 'ms';
       lbl.textContent = mode.toUpperCase();
       lbl.style.color = mode === 'off' ? 'var(--text-muted)' : 'var(--text)';
-
       ['on','blink','off'].forEach(m =>
         document.getElementById('btn-' + m).classList.toggle('active', m === mode));
-
       let url = '/led?state=' + mode;
       if (mode === 'blink') url += '&ms=' + state.blinkMs;
       cmd(url);
@@ -282,28 +336,64 @@
       setLed('blink', ms);
     }
 
-    // --- Servo ---
-    const needle     = document.getElementById('needle');
-    const srvSlider  = document.getElementById('servo-slider');
-    const degDisplay = document.getElementById('deg-display');
-    let srvTimer     = null;
-
+    // --- Positional servo ---
     function setServo(deg) {
       deg = Math.round(deg);
-      state.servoDeg = deg;
-      srvSlider.value = deg;
-      degDisplay.textContent = deg + '°';
-      needle.setAttribute('transform', 'rotate(' + (deg - 90) + ', 100, 100)');
-      cmd('/servo?deg=' + deg);
+      const sl = document.getElementById('servo-slider');
+      if (sl) sl.value = deg;
+      const dd = document.getElementById('deg-display');
+      if (dd) dd.textContent = deg + '°';
+      const needle = document.getElementById('needle');
+      if (needle) needle.setAttribute('transform', 'rotate(' + (deg - 90) + ', 100, 100)');
+      servoCmd('/servo?deg=' + deg);
     }
 
     function onServoSlider(val) {
       val = parseInt(val);
-      state.servoDeg = val;
-      degDisplay.textContent = val + '°';
-      needle.setAttribute('transform', 'rotate(' + (val - 90) + ', 100, 100)');
+      const dd = document.getElementById('deg-display');
+      if (dd) dd.textContent = val + '°';
+      const needle = document.getElementById('needle');
+      if (needle) needle.setAttribute('transform', 'rotate(' + (val - 90) + ', 100, 100)');
       clearTimeout(srvTimer);
-      srvTimer = setTimeout(() => cmd('/servo?deg=' + val), 100);
+      srvTimer = setTimeout(() => servoCmd('/servo?deg=' + val), 100);
+    }
+
+    // --- Continuous servo ---
+    function stopServo() {
+      const sl = document.getElementById('speed-slider');
+      if (sl) sl.value = 0;
+      const sd = document.getElementById('speed-display');
+      if (sd) sd.textContent = 'STOP';
+      const sv = document.getElementById('speed-val');
+      if (sv) sv.textContent = '0%';
+      servoCmd('/servo?stop');
+    }
+
+    function onSpeedSlider(val) {
+      val = parseInt(val);
+      const sd = document.getElementById('speed-display');
+      const sv = document.getElementById('speed-val');
+      if (val === 0) {
+        if (sd) sd.textContent = 'STOP';
+        if (sv) sv.textContent = '0%';
+      } else {
+        const dir = val > 0 ? 'FWD' : 'REV';
+        const pct = Math.abs(val);
+        if (sd) sd.textContent = dir + ' ' + pct + '%';
+        if (sv) sv.textContent = (val > 0 ? '+' : '') + val + '%';
+      }
+      clearTimeout(srvTimer);
+      srvTimer = setTimeout(() => {
+        if (val === 0) servoCmd('/servo?stop');
+        else servoCmd('/servo?speed=' + val);
+      }, 100);
+    }
+
+    function onTrimChange(val) {
+      val = parseInt(val);
+      const tv = document.getElementById('trim-val');
+      if (tv) tv.textContent = (val >= 0 ? '+' : '') + val + ' µs';
+      servoCmd('/servo?trim=' + val);
     }
   </script>
 </body>

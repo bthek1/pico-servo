@@ -12,11 +12,17 @@
 #define SERVO_GPIO    0
 #define SERIAL_BUF_SZ 512
 
+static const servo_config_t *s_servo_model   = &SERVO_SER0006;
+static int16_t               s_servo_trim_us = 0;
+
 static char s_serial_buf[SERIAL_BUF_SZ];
 static int  s_serial_len = 0;
 
 static char s_recv_snapshot[SERIAL_BUF_SZ];
 static int  s_recv_snapshot_len = 0;
+
+static char s_servo_info_buf[64];
+static int  s_servo_info_len = 0;
 
 // --- LED state machine ---------------------------------------------------
 
@@ -82,19 +88,31 @@ static const char *cgi_led(int iIndex, int iNumParams, char *pcParam[], char *pc
     return "/ok.txt";
 }
 
-// --- CGI: /servo?deg=<0-180> ---------------------------------------------
+// --- CGI: /servo?deg=<0-180> | ?speed=<-100..100> | ?trim=<-50..50> | ?stop
 
 static const char *cgi_servo(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]) {
     (void)iIndex;
+    bool do_stop = false;
     for (int i = 0; i < iNumParams; i++) {
         if (strcmp(pcParam[i], "deg") == 0) {
             float deg = (float)atof(pcValue[i]);
             if (deg < 0.0f)   deg = 0.0f;
             if (deg > 180.0f) deg = 180.0f;
             servo_set_deg(SERVO_GPIO, deg);
-            break;
+        } else if (strcmp(pcParam[i], "speed") == 0) {
+            float speed = (float)atof(pcValue[i]) / 100.0f;
+            servo_set_speed(SERVO_GPIO, speed);
+        } else if (strcmp(pcParam[i], "trim") == 0) {
+            int trim = atoi(pcValue[i]);
+            if (trim < -50) trim = -50;
+            if (trim >  50) trim =  50;
+            s_servo_trim_us = (int16_t)trim;
+            servo_set_stop_us(SERVO_GPIO, (uint16_t)((int)s_servo_model->stop_us + trim));
+        } else if (strcmp(pcParam[i], "stop") == 0) {
+            do_stop = true;
         }
     }
+    if (do_stop) servo_safe_stop(SERVO_GPIO);
     return "/ok.txt";
 }
 
@@ -118,6 +136,21 @@ int fs_open_custom(struct fs_file *file, const char *name) {
         file->flags = 0;
         return 1;
     }
+    if (strcmp(name, "/servo_info.txt") == 0) {
+        if (s_servo_model->type == SERVO_CONTINUOUS) {
+            s_servo_info_len = snprintf(s_servo_info_buf, sizeof(s_servo_info_buf),
+                "type=continuous\nstop=%d\n",
+                (int)s_servo_model->stop_us + s_servo_trim_us);
+        } else {
+            s_servo_info_len = snprintf(s_servo_info_buf, sizeof(s_servo_info_buf),
+                "type=positional\nmin=0\nmax=180\n");
+        }
+        file->data  = s_servo_info_buf;
+        file->len   = s_servo_info_len;
+        file->index = s_servo_info_len;
+        file->flags = 0;
+        return 1;
+    }
     return 0;
 }
 
@@ -127,8 +160,8 @@ void fs_close_custom(struct fs_file *file) { (void)file; }
 
 int main() {
     serial_init();
-    servo_init(SERVO_GPIO);
-    servo_set_deg(SERVO_GPIO, 90.0f);
+    servo_init_config(SERVO_GPIO, s_servo_model);
+    servo_safe_stop(SERVO_GPIO);
 
     serial_println("connecting to %s ...", WIFI_SSID);
     if (wifi_connect(WIFI_SSID, WIFI_PASSWORD) != WIFI_OK) {

@@ -229,14 +229,30 @@ See `targets/webserver/` for a working bidirectional serial terminal using both 
 ```c
 #include "servo.h"
 
-void servo_init(uint gpio);
-void servo_set_us(uint gpio, uint16_t pulse_us);   // 1000–2000 µs
-void servo_set_deg(uint gpio, float degrees);       // 0–180°
+// Model presets
+extern const servo_config_t SERVO_SER0006;  // DFRobot 9g positional, 500–2500 µs
+extern const servo_config_t SERVO_SG92R;    // TowerPro 9g positional, 500–2500 µs
+extern const servo_config_t SERVO_MG996R;   // TowerPro/Olimex continuous rotation, 1000–2000 µs
+
+void servo_init_config(uint gpio, const servo_config_t *cfg); // attach model config
+void servo_init(uint gpio);                                    // backward-compat: uses SERVO_SER0006
+
+void servo_set_us(uint gpio, uint16_t pulse_us);   // clamped to cfg.min_us–cfg.max_us
+void servo_set_deg(uint gpio, float degrees);       // positional only: 0–180°; no-op on continuous
+void servo_set_speed(uint gpio, float speed);       // continuous only: -1.0–+1.0; no-op on positional
+void servo_set_stop_us(uint gpio, uint16_t stop_us); // continuous only: update trim/stop point
+void servo_safe_stop(uint gpio);                    // sends stop_us regardless of type
 ```
 
 Link: `servo` (pulls in `pico_stdlib`, `hardware_pwm`, `hardware_clocks`)
 
 PWM: 125 MHz / (100 × 25000) = 50 Hz. Level = pulse_us × 25000 / 20000.
+
+**Servo models:**
+- `SERVO_SER0006` and `SERVO_SG92R`: positional, 500–2500 µs. SER0006 nominal spec is 1000–2000 µs but that only yields ~90° travel — 500–2500 µs is empirically correct.
+- `SERVO_MG996R`: continuous rotation (TowerPro/Olimex MS-R-9.5-55-MG), 1000–2000 µs, 1500 µs = stop.
+
+**Safety:** `servo_set_us` clamps all pulses to `[min_us, max_us]`. Type-mismatch calls (`set_deg` on continuous, `set_speed` on positional) are silent no-ops. `servo_safe_stop` always works.
 
 ## Secrets
 
