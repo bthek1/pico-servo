@@ -5,11 +5,11 @@ default:
 
 # pull, compile, and flash a target (default: from secrets.h)
 [group('workflow')]
-deploy target='': pull push-secrets (compile target) (flash target)
+deploy target='': pull push-secrets (compile target) (flash target) && just monitor
 
 # pull, clean compile, and flash a target (default: from secrets.h)
 [group('workflow')]
-deploy-clean target='': pull push-secrets (compile-clean target) (flash target)
+deploy-clean target='': pull push-secrets (compile-clean target) (flash target) && just monitor
 
 # ── Secrets ───────────────────────────────────────────────────────────────────
 
