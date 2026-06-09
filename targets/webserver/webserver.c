@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define SERVO_GPIO    2
+#define SERVO_GPIO    0
 #define SERIAL_BUF_SZ 512
 
 static char s_serial_buf[SERIAL_BUF_SZ];
