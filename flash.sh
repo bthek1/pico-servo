@@ -15,14 +15,19 @@ fi
 
 # If Pico is running firmware, reboot it into BOOTSEL via USB
 if [ ! -d "$MOUNT" ]; then
-    if command -v picotool &>/dev/null; then
-        echo "Rebooting Pico into BOOTSEL mode..."
-        picotool reboot -f -u 2>/dev/null || true
-        for i in $(seq 1 10); do
-            sleep 1
-            [ -d "$MOUNT" ] && break
-        done
+    echo "Rebooting Pico into BOOTSEL mode..."
+    # 1200-baud magic: Pico SDK USB CDC reboots to BOOTSEL on 1200-baud open
+    if [ -e /dev/ttyACM0 ]; then
+        stty -F /dev/ttyACM0 1200 2>/dev/null || true
     fi
+    # Also try picotool in case device isn't on ttyACM0
+    if command -v picotool &>/dev/null; then
+        picotool reboot -f -u 2>/dev/null || true
+    fi
+    for i in $(seq 1 10); do
+        sleep 1
+        [ -d "$MOUNT" ] && break
+    done
 fi
 
 if [ ! -d "$MOUNT" ]; then
