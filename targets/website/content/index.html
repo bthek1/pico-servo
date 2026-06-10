@@ -15,33 +15,139 @@
     input[type=range] { accent-color: #ef4444; cursor: pointer; }
   </style>
 </head>
-<body class="bg-zinc-950 text-zinc-100 min-h-screen">
+<body class="bg-zinc-950 text-zinc-100 min-h-screen flex flex-col">
 
-<!-- Header -->
-<header class="flex justify-between items-center px-5 py-2 bg-zinc-900 border-b border-zinc-800">
-  <span class="font-semibold flex items-center gap-2">
-    <span id="status-dot" class="animate-hpulse text-green-500">●</span>
-    Pico W
-  </span>
-  <span id="ip-label" class="text-zinc-400 text-sm"></span>
-</header>
+<!-- Navbar -->
+<nav class="flex items-center justify-between px-5 py-3 bg-zinc-900 border-b border-zinc-800">
+  <div class="flex items-center gap-2.5">
+    <img src="/logo.svg" class="w-6 h-6 shrink-0" alt="logo">
+    <span class="font-bold text-sm tracking-wide">Pico W</span>
+    <span class="text-zinc-600 text-xs hidden sm:inline">Servo Controller</span>
+  </div>
+  <div class="flex items-center gap-3">
+    <span id="ip-label" class="text-zinc-500 text-xs font-mono"></span>
+    <span id="status-dot" class="animate-hpulse text-green-500 leading-none">●</span>
+  </div>
+</nav>
 
 <!-- Tabs -->
-<div x-data="{ tab: 'terminal' }">
+<div x-data="{ tab: 'home' }" class="flex-1 flex flex-col">
 
   <nav class="flex bg-zinc-900 border-b border-zinc-800 px-5">
+    <button @click="tab='home'"
+            :class="tab==='home'     ? 'text-red-500 border-red-500' : 'text-zinc-400 border-transparent hover:text-zinc-100'"
+            class="border-b-2 py-2.5 px-4 text-sm transition-colors bg-transparent">Home</button>
     <button @click="tab='terminal'"
             :class="tab==='terminal' ? 'text-red-500 border-red-500' : 'text-zinc-400 border-transparent hover:text-zinc-100'"
             class="border-b-2 py-2.5 px-4 text-sm transition-colors bg-transparent">Terminal</button>
     <button @click="tab='light'"
-            :class="tab==='light' ? 'text-red-500 border-red-500' : 'text-zinc-400 border-transparent hover:text-zinc-100'"
+            :class="tab==='light'    ? 'text-red-500 border-red-500' : 'text-zinc-400 border-transparent hover:text-zinc-100'"
             class="border-b-2 py-2.5 px-4 text-sm transition-colors bg-transparent">Light</button>
     <button @click="tab='servo'"
-            :class="tab==='servo' ? 'text-red-500 border-red-500' : 'text-zinc-400 border-transparent hover:text-zinc-100'"
+            :class="tab==='servo'    ? 'text-red-500 border-red-500' : 'text-zinc-400 border-transparent hover:text-zinc-100'"
             class="border-b-2 py-2.5 px-4 text-sm transition-colors bg-transparent">Servo</button>
   </nav>
 
   <main class="p-5">
+
+    <!-- Home -->
+    <section x-show="tab==='home'" class="space-y-5">
+
+      <!-- Hero -->
+      <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-5 flex items-center gap-4">
+        <img src="/logo.svg" class="w-12 h-12 shrink-0" alt="logo">
+        <div>
+          <div class="font-bold text-lg">Raspberry Pi Pico W</div>
+          <div class="text-zinc-400 text-sm">RP2040 &middot; CYW43439 Wi-Fi &middot; Servo Controller firmware</div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+
+        <!-- Specs -->
+        <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-5 space-y-3">
+          <div class="text-xs uppercase text-zinc-500 tracking-wide">Specifications</div>
+          <table class="w-full text-sm">
+            <tbody class="divide-y divide-zinc-800">
+              <tr class="py-1.5"><td class="py-1.5 text-zinc-500 pr-4 whitespace-nowrap">MCU</td>          <td class="py-1.5 text-zinc-200">RP2040</td></tr>
+              <tr><td class="py-1.5 text-zinc-500 pr-4 whitespace-nowrap">Cores</td>        <td class="py-1.5 text-zinc-200">Dual-core Arm Cortex-M0+ @ 133 MHz</td></tr>
+              <tr><td class="py-1.5 text-zinc-500 pr-4 whitespace-nowrap">RAM</td>          <td class="py-1.5 text-zinc-200">264 KB SRAM</td></tr>
+              <tr><td class="py-1.5 text-zinc-500 pr-4 whitespace-nowrap">Flash</td>        <td class="py-1.5 text-zinc-200">2 MB QSPI</td></tr>
+              <tr><td class="py-1.5 text-zinc-500 pr-4 whitespace-nowrap">Wi-Fi</td>        <td class="py-1.5 text-zinc-200">CYW43439 &mdash; 2.4 GHz 802.11 b/g/n</td></tr>
+              <tr><td class="py-1.5 text-zinc-500 pr-4 whitespace-nowrap">Bluetooth</td>    <td class="py-1.5 text-zinc-200">BT 5.2 / BLE (CYW43439)</td></tr>
+              <tr><td class="py-1.5 text-zinc-500 pr-4 whitespace-nowrap">GPIO</td>         <td class="py-1.5 text-zinc-200">26 multi-function pins</td></tr>
+              <tr><td class="py-1.5 text-zinc-500 pr-4 whitespace-nowrap">ADC</td>          <td class="py-1.5 text-zinc-200">3 × 12-bit (500 kSps)</td></tr>
+              <tr><td class="py-1.5 text-zinc-500 pr-4 whitespace-nowrap">PWM</td>          <td class="py-1.5 text-zinc-200">16 channels (8 slices)</td></tr>
+              <tr><td class="py-1.5 text-zinc-500 pr-4 whitespace-nowrap">USB</td>          <td class="py-1.5 text-zinc-200">USB 1.1 host / device</td></tr>
+              <tr><td class="py-1.5 text-zinc-500 pr-4 whitespace-nowrap">Voltage</td>      <td class="py-1.5 text-zinc-200">1.8–5.5 V (micro-USB or VSYS)</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="space-y-5">
+
+          <!-- Firmware info -->
+          <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-5 space-y-3">
+            <div class="text-xs uppercase text-zinc-500 tracking-wide">This Firmware</div>
+            <ul class="text-sm space-y-1.5 text-zinc-300">
+              <li class="flex gap-2"><span class="text-red-500">&#9679;</span>Servo PWM control (positional + continuous)</li>
+              <li class="flex gap-2"><span class="text-red-500">&#9679;</span>LED on/off/blink via CYW43 GPIO</li>
+              <li class="flex gap-2"><span class="text-red-500">&#9679;</span>USB serial terminal passthrough</li>
+              <li class="flex gap-2"><span class="text-red-500">&#9679;</span>lwIP httpd &mdash; this page is served from flash</li>
+              <li class="flex gap-2"><span class="text-red-500">&#9679;</span>Stack: Tailwind CSS + htmx + Alpine.js</li>
+            </ul>
+          </div>
+
+          <!-- Resources -->
+          <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-5 space-y-3">
+            <div class="text-xs uppercase text-zinc-500 tracking-wide">Resources</div>
+            <ul class="text-sm space-y-2">
+              <li>
+                <a href="https://datasheets.raspberrypi.com/picow/pico-w-datasheet.pdf"
+                   target="_blank" rel="noopener"
+                   class="flex items-center gap-2 text-red-400 hover:text-red-300 transition-colors">
+                  <span>Pico W Datasheet</span>
+                  <svg class="w-3 h-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                </a>
+              </li>
+              <li>
+                <a href="https://datasheets.raspberrypi.com/rp2040/rp2040-datasheet.pdf"
+                   target="_blank" rel="noopener"
+                   class="flex items-center gap-2 text-red-400 hover:text-red-300 transition-colors">
+                  <span>RP2040 Datasheet</span>
+                  <svg class="w-3 h-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                </a>
+              </li>
+              <li>
+                <a href="https://datasheets.raspberrypi.com/pico/raspberry-pi-pico-c-sdk.pdf"
+                   target="_blank" rel="noopener"
+                   class="flex items-center gap-2 text-red-400 hover:text-red-300 transition-colors">
+                  <span>Pico C/C++ SDK</span>
+                  <svg class="w-3 h-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                </a>
+              </li>
+              <li>
+                <a href="https://datasheets.raspberrypi.com/picow/connecting-to-the-internet-with-pico-w.pdf"
+                   target="_blank" rel="noopener"
+                   class="flex items-center gap-2 text-red-400 hover:text-red-300 transition-colors">
+                  <span>Connecting to the Internet</span>
+                  <svg class="w-3 h-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                </a>
+              </li>
+              <li>
+                <a href="https://github.com/raspberrypi/pico-sdk"
+                   target="_blank" rel="noopener"
+                   class="flex items-center gap-2 text-red-400 hover:text-red-300 transition-colors">
+                  <span>pico-sdk on GitHub</span>
+                  <svg class="w-3 h-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                </a>
+              </li>
+            </ul>
+          </div>
+
+        </div>
+      </div>
+    </section>
 
     <!-- Terminal -->
     <section x-show="tab==='terminal'">
@@ -188,8 +294,17 @@
   </main>
 </div>
 
+<!-- Footer -->
+<footer class="border-t border-zinc-800 bg-zinc-900 px-5 py-3 flex items-center justify-between text-xs text-zinc-600 mt-auto">
+  <span>RP2040 &middot; CYW43439</span>
+  <span>Pico W Servo Controller</span>
+  <span id="footer-ip" class="font-mono"></span>
+</footer>
+
 <script>
-  document.getElementById('ip-label').textContent = location.hostname;
+  const ip = location.hostname;
+  document.getElementById('ip-label').textContent = ip;
+  document.getElementById('footer-ip').textContent = ip;
 
   document.body.addEventListener('htmx:responseError', () => {
     const dot = document.getElementById('status-dot');
