@@ -298,8 +298,7 @@
         </button>
 
         <div class="bg-zinc-950 border border-zinc-800 rounded-lg p-3"
-             x-data="pulseGraph('/servo_pulse.txt', 400, 2600)"
-             x-init="init()">
+             x-data="pulseGraph('/servo_pulse.txt', 400, 2600)">
           <div class="text-xs uppercase text-zinc-500 tracking-wide mb-2">Pulse History</div>
           <div x-ref="canvas"></div>
         </div>
@@ -393,8 +392,7 @@
         </div>
 
         <div class="bg-zinc-950 border border-zinc-800 rounded-lg p-3"
-             x-data="pulseGraph('/esc_pulse.txt', 900, 2100)"
-             x-init="init()">
+             x-data="pulseGraph('/esc_pulse.txt', 900, 2100)">
           <div class="text-xs uppercase text-zinc-500 tracking-wide mb-2">Pulse History</div>
           <div x-ref="canvas"></div>
         </div>

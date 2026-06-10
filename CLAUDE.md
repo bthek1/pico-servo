@@ -13,14 +13,14 @@ Servo motor control and Wi-Fi firmware for the **Raspberry Pi Pico W** (RP2040 +
 
 ## Host Machine
 
-The Pico is connected to a **Raspberry Pi** (the host/build machine).
+The Pico is connected to a **Raspberry Pi** (the flash/monitor machine).
 
 - SSH access: `ssh pi` (username: `bthek1`)
-- Repo path on Pi: `~/Documents/pico/pico-servo`
-- All build, flash, and serial commands run **on the Raspberry Pi over SSH**
-- Flash mount point: `/media/bthek1/RPI-RP2/`
+- Flash mount point on Pi: `/media/bthek1/RPI-RP2/`
+- **Compile runs locally** (this machine); flash and serial monitor go via `ssh pi`
+- The Pi does **not** have a copy of this repo — it only needs the Pico plugged in
 
-When giving instructions that involve the terminal, assume the user is either already SSH'd in or needs to run `ssh pi` first.
+All terminal commands run locally unless noted otherwise.
 
 ## Project Structure
 
@@ -29,7 +29,7 @@ pico-servo/
 ├── CMakeLists.txt          ← root: SDK init + add_subdirectory for each lib and target
 ├── compile.sh              ← build all, or a single target: ./compile.sh [target]
 ├── flash.sh                ← flash a target (default: website): ./flash.sh [target]
-├── justfile                ← just commands: deploy, compile, flash, monitor, push-secrets
+├── justfile                ← just commands: deploy, compile, flash, monitor
 ├── secrets.h               ← Wi-Fi credentials (gitignored, copy from secrets.h.example)
 ├── secrets.h.example       ← credential template (committed)
 ├── docs/
@@ -54,34 +54,33 @@ pico-servo/
 ## Build & Flash
 
 ```bash
-# Run on the Raspberry Pi (ssh pi)
+# Run locally
 ./compile.sh              # build all targets
 ./compile.sh sweep        # build one target
 ./compile.sh --clean      # clean build (all)
-./flash.sh                # flash default target (website)
-./flash.sh sweep          # flash a specific target
-picocom -b 115200 /dev/ttyACM0   # serial monitor
+./flash.sh --remote       # scp .uf2 to Pi, then flash default target (website)
+./flash.sh --remote sweep # flash a specific target
 ```
 
-Or via justfile (run locally, SSH to Pi automatically):
+Via justfile (all run locally):
 
 ```bash
-just deploy           # pull + push-secrets + compile + flash website
-just deploy sweep     # pull + push-secrets + compile + flash sweep
-just compile sweep    # compile one target on Pi
-just flash sweep      # flash one target on Pi
-just monitor          # open serial monitor on Pi
-just push-secrets     # copy secrets.h to Pi (run after editing credentials)
+just deploy           # compile + flash website
+just deploy sweep     # compile + flash sweep
+just compile sweep    # compile one target
+just flash sweep      # flash one target via Pi
+just monitor          # open serial monitor (ssh pi)
 ```
 
 Build output is in `build/` (gitignored). UF2 files land at `build/targets/<target>/<target>.uf2`.
 
 The default target is **`website`** (`build/targets/website/website.uf2`).
 
-Manual flash:
+Manual flash (from this machine):
 
 ```bash
-cp build/targets/website/website.uf2 /media/bthek1/RPI-RP2/
+scp build/targets/website/website.uf2 pi:~/pico-flash/website.uf2
+ssh pi "cp ~/pico-flash/website.uf2 /media/bthek1/RPI-RP2/"
 ```
 
 ## SDK & CMake Conventions

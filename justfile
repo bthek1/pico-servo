@@ -3,46 +3,32 @@ default:
 
 # ── Workflow ──────────────────────────────────────────────────────────────────
 
-# pull, compile, and flash a target (default: from secrets.h)
+# compile locally and flash to Pico via Pi (default: from secrets.h)
 [group('workflow')]
-deploy target='': pull push-secrets (compile target) (flash target) _wait-tty monitor
+deploy target='': (compile target) (flash target) _wait-tty monitor
 
-# pull, clean compile, and flash a target (default: from secrets.h)
+# clean compile locally and flash to Pico via Pi
 [group('workflow')]
-deploy-clean target='': pull push-secrets (compile-clean target) (flash target) _wait-tty monitor
-
-# ── Secrets ───────────────────────────────────────────────────────────────────
-
-# copy secrets.h to the Pi (never committed, must be synced manually)
-[group('secrets')]
-push-secrets:
-    scp secrets.h pi:~/Documents/pico/pico-servo/secrets.h
-
-# ── Git ───────────────────────────────────────────────────────────────────────
-
-# force pull on the Pi, discarding any local changes
-[group('git')]
-pull:
-    ssh pi "cd ~/Documents/pico/pico-servo && git fetch origin && git reset --hard origin/main"
+deploy-clean target='': (compile-clean target) (flash target) _wait-tty monitor
 
 # ── Build ─────────────────────────────────────────────────────────────────────
 
-# compile on the Pi (default: from secrets.h, e.g: just compile sweep)
+# compile locally (default: from secrets.h, e.g: just compile sweep)
 [group('build')]
 compile target='':
-    ssh pi "cd ~/Documents/pico/pico-servo && ./compile.sh {{target}}"
+    ./compile.sh {{target}}
 
-# clean then compile on the Pi (default: from secrets.h)
+# clean then compile locally
 [group('build')]
 compile-clean target='':
-    ssh pi "cd ~/Documents/pico/pico-servo && ./compile.sh --clean {{target}}"
+    ./compile.sh --clean {{target}}
 
 # ── Device ────────────────────────────────────────────────────────────────────
 
-# flash a target (default: from secrets.h)
+# flash a target to the Pico via the Pi (default: from secrets.h)
 [group('device')]
 flash target='':
-    ssh pi "cd ~/Documents/pico/pico-servo && ./flash.sh {{target}}"
+    ./flash.sh --remote {{target}}
 
 # open serial monitor
 [group('device')]
