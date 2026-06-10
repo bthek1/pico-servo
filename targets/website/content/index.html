@@ -516,6 +516,7 @@
       armCountdown: 0,
       _armTimer: null,
       _debounce: null,
+      _heartbeat: null,
       _warned: false,
 
       init() {
@@ -536,6 +537,16 @@
         });
       },
 
+      startHeartbeat() {
+        this.stopHeartbeat();
+        this._heartbeat = setInterval(() => {
+          if (this.state === 'armed') send('/esc?pulse=' + this.throttle);
+        }, 200);
+      },
+      stopHeartbeat() {
+        if (this._heartbeat) { clearInterval(this._heartbeat); this._heartbeat = null; }
+      },
+
       startArm() {
         if (this.state !== 'disarmed') return;
         if (!this._warned) {
@@ -553,6 +564,7 @@
             send('/esc?arm');
             this.state = 'arming';
             this._pollState();
+            this.startHeartbeat();
           }
         }, 1000);
       },
@@ -577,6 +589,7 @@
         send('/esc?disarm');
         this.state    = 'disarmed';
         this.throttle = this.neutralUs;
+        this.stopHeartbeat();
       },
       brake() {
         this.throttle = this.neutralUs;
@@ -589,9 +602,7 @@
       },
       debounceSend() {
         if (this.state !== 'armed') return;
-        clearTimeout(this._debounce);
-        const v = this.throttle;
-        this._debounce = setTimeout(() => send('/esc?pulse=' + v), 100);
+        send('/esc?pulse=' + this.throttle);
       },
 
       stateLabel() {
