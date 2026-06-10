@@ -145,6 +145,9 @@ static const char *cgi_esc(int iIndex, int iNumParams, char *pcParam[], char *pc
             if (v < -100) v = -100;
             if (v >  100) v =  100;
             esc_set_speed(ESC_GPIO, (float)v / 100.0f);
+        } else if (strcmp(pcParam[i], "pulse") == 0) {
+            int v = atoi(pcValue[i]);
+            esc_set_us(ESC_GPIO, (uint16_t)v);
         } else if (strcmp(pcParam[i], "brake") == 0) {
             esc_brake(ESC_GPIO);
         }

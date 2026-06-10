@@ -342,16 +342,17 @@
           <div class="text-xs uppercase text-zinc-500 tracking-wide mb-2 mt-4"
                x-text="type === 'bidirectional' ? 'Speed' : 'Throttle'"></div>
           <input type="range"
-                 :min="type === 'bidirectional' ? -100 : 0"
-                 max="100"
+                 :min="minUs"
+                 :max="maxUs"
+                 step="10"
                  x-model.number="throttle"
                  :disabled="state !== 'armed'"
                  :class="state !== 'armed' ? 'opacity-40 cursor-not-allowed' : ''"
                  class="w-full"
                  @input="debounceSend()">
           <div class="flex justify-between text-xs text-zinc-600 mt-1">
-            <span x-text="type === 'bidirectional' ? 'Full Rev' : '0%'"></span>
-            <span x-text="type === 'bidirectional' ? 'Full Fwd' : '100%'"></span>
+            <span x-text="minUs + ' µs' + (type === 'bidirectional' ? ' (Rev)' : ' (Off)')"></span>
+            <span x-text="maxUs + ' µs' + (type === 'bidirectional' ? ' (Fwd)' : ' (Full)')"></span>
           </div>
         </div>
 
@@ -507,7 +508,11 @@
     return {
       state: 'disarmed',
       type:  'unidirectional',
-      throttle: 0,
+      throttle:   1000,
+      minUs:      1000,
+      maxUs:      2000,
+      neutralUs:  1000,
+      deadbandUs: 0,
       armCountdown: 0,
       _armTimer: null,
       _debounce: null,
@@ -518,8 +523,13 @@
           const p = Object.fromEntries(
             t.trim().split('\n').map(l => l.split('=').map(s => s.trim()))
           );
-          this.state = p.state || 'disarmed';
-          this.type  = p.type  || 'unidirectional';
+          this.state      = p.state || 'disarmed';
+          this.type       = p.type  || 'unidirectional';
+          this.minUs      = parseInt(p.min_us)      || 1000;
+          this.maxUs      = parseInt(p.max_us)      || 2000;
+          this.neutralUs  = parseInt(p.neutral_us)  || 1000;
+          this.deadbandUs = parseInt(p.deadband_us) || 0;
+          this.throttle   = this.neutralUs;
         }).catch(() => {});
         window.addEventListener('beforeunload', () => {
           if (this.state !== 'disarmed') navigator.sendBeacon('/esc?disarm');
@@ -566,23 +576,22 @@
       disarm() {
         send('/esc?disarm');
         this.state    = 'disarmed';
-        this.throttle = 0;
+        this.throttle = this.neutralUs;
       },
       brake() {
-        this.throttle = 0;
+        this.throttle = this.neutralUs;
         send('/esc?brake');
       },
       setType(t) {
         if (this.state === 'armed') this.disarm();
         this.type     = t;
-        this.throttle = 0;
+        this.throttle = this.neutralUs;
       },
       debounceSend() {
         if (this.state !== 'armed') return;
         clearTimeout(this._debounce);
         const v = this.throttle;
-        const param = this.type === 'bidirectional' ? 'speed' : 'throttle';
-        this._debounce = setTimeout(() => send('/esc?' + param + '=' + v), 100);
+        this._debounce = setTimeout(() => send('/esc?pulse=' + v), 100);
       },
 
       stateLabel() {
@@ -591,10 +600,11 @@
       },
       throttleLabel() {
         if (this.type === 'bidirectional') {
-          if (Math.abs(this.throttle) < 3) return 'BRAKE';
-          return (this.throttle > 0 ? 'FWD ' : 'REV ') + Math.abs(this.throttle) + '%';
+          const diff = this.throttle - this.neutralUs;
+          if (Math.abs(diff) <= (this.deadbandUs || 25)) return this.throttle + ' µs';
+          return this.throttle + ' µs ' + (diff > 0 ? 'FWD' : 'REV');
         }
-        return this.throttle + '%';
+        return this.throttle + ' µs';
       },
     };
   }
