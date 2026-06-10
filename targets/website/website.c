@@ -222,9 +222,9 @@ int main() {
     esc_init(ESC_GPIO, s_esc_model);
 
     serial_println("connecting to %s ...", WIFI_SSID);
-    if (wifi_connect(WIFI_SSID, WIFI_PASSWORD) != WIFI_OK) {
-        serial_println("wifi failed");
-        return 1;
+    while (wifi_connect(WIFI_SSID, WIFI_PASSWORD) != WIFI_OK) {
+        serial_println("wifi failed, retrying in 5s...");
+        sleep_ms(5000);
     }
     wifi_set_static_ip("192.168.2.55", "255.255.255.0", "192.168.2.1");
     serial_println("ip: %s", wifi_get_ip());
