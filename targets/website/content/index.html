@@ -46,6 +46,9 @@
     <button @click="tab='servo'"
             :class="tab==='servo'    ? 'text-red-500 border-red-500' : 'text-zinc-400 border-transparent hover:text-zinc-100'"
             class="border-b-2 py-2.5 px-4 text-sm transition-colors bg-transparent">Servo</button>
+    <button @click="tab='esc'"
+            :class="tab==='esc'      ? 'text-red-500 border-red-500' : 'text-zinc-400 border-transparent hover:text-zinc-100'"
+            class="border-b-2 py-2.5 px-4 text-sm transition-colors bg-transparent">ESC</button>
   </nav>
 
   <main class="p-5">
@@ -291,6 +294,93 @@
       </div>
     </section>
 
+    <!-- ESC -->
+    <section x-show="tab==='esc'" x-data="escPanel()" x-init="init()">
+      <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-5 space-y-5">
+
+        <!-- Status -->
+        <div class="flex items-center gap-3">
+          <span class="inline-block w-3.5 h-3.5 rounded-full transition-all"
+                :class="{
+                  'bg-zinc-700': state === 'disarmed',
+                  'bg-amber-500 animate-hpulse': state === 'arming',
+                  'bg-green-500 shadow-[0_0_6px_#22c55e]': state === 'armed'
+                }">
+          </span>
+          <span class="font-semibold" x-text="stateLabel()"></span>
+        </div>
+
+        <!-- Arm / Disarm -->
+        <div>
+          <div class="text-xs uppercase text-zinc-500 tracking-wide mb-2">Control</div>
+          <div class="flex gap-2">
+            <button @mousedown="startArm()" @mouseup="cancelArm()" @mouseleave="cancelArm()"
+                    @touchstart.prevent="startArm()" @touchend="cancelArm()"
+                    :disabled="state !== 'disarmed'"
+                    :class="state === 'disarmed'
+                      ? 'bg-red-800 hover:bg-red-700 border-red-600 text-white'
+                      : 'bg-zinc-800 border-zinc-700 text-zinc-500 cursor-not-allowed'"
+                    class="px-4 py-2 border rounded text-sm font-semibold transition-colors min-w-[120px]">
+              <span x-text="armCountdown > 0 ? 'Hold… ' + armCountdown + 's' : 'ARM (hold 1s)'"></span>
+            </button>
+            <button @click="disarm()"
+                    :disabled="state === 'disarmed'"
+                    :class="state !== 'disarmed'
+                      ? 'bg-zinc-700 hover:bg-zinc-600 border-zinc-500 text-white'
+                      : 'bg-zinc-900 border-zinc-800 text-zinc-600 cursor-not-allowed'"
+                    class="px-4 py-2 border rounded text-sm font-semibold transition-colors">DISARM</button>
+          </div>
+          <div x-show="state === 'arming' && armCountdown === 0"
+               class="mt-2 text-xs text-amber-400">Arming — sending min throttle to ESC…</div>
+        </div>
+
+        <!-- Throttle readout + slider -->
+        <div>
+          <div class="text-4xl font-bold text-red-500 text-center"
+               :class="state !== 'armed' ? 'opacity-40' : ''"
+               x-text="throttleLabel()"></div>
+          <div class="text-xs uppercase text-zinc-500 tracking-wide mb-2 mt-4"
+               x-text="type === 'bidirectional' ? 'Speed' : 'Throttle'"></div>
+          <input type="range"
+                 :min="type === 'bidirectional' ? -100 : 0"
+                 max="100"
+                 x-model.number="throttle"
+                 :disabled="state !== 'armed'"
+                 :class="state !== 'armed' ? 'opacity-40 cursor-not-allowed' : ''"
+                 class="w-full"
+                 @input="debounceSend()">
+          <div class="flex justify-between text-xs text-zinc-600 mt-1">
+            <span x-text="type === 'bidirectional' ? 'Full Rev' : '0%'"></span>
+            <span x-text="type === 'bidirectional' ? 'Full Fwd' : '100%'"></span>
+          </div>
+        </div>
+
+        <!-- Brake -->
+        <button @click="brake()"
+                :disabled="state !== 'armed'"
+                :class="state === 'armed'
+                  ? 'bg-red-700 hover:bg-red-600 border-red-600 text-white'
+                  : 'bg-zinc-900 border-zinc-800 text-zinc-600 cursor-not-allowed'"
+                class="w-full py-2.5 rounded font-semibold text-sm transition-colors border">
+          &#9632; BRAKE
+        </button>
+
+        <!-- ESC Type -->
+        <div>
+          <div class="text-xs uppercase text-zinc-500 tracking-wide mb-2">ESC Type</div>
+          <div class="flex gap-2">
+            <button @click="setType('unidirectional')"
+                    :class="type === 'unidirectional' ? 'bg-zinc-600 border-zinc-500 text-white' : 'bg-zinc-950 border-zinc-700 text-zinc-300 hover:bg-zinc-800'"
+                    class="px-3 py-1.5 border rounded text-sm transition-colors">Unidirectional</button>
+            <button @click="setType('bidirectional')"
+                    :class="type === 'bidirectional' ? 'bg-zinc-600 border-zinc-500 text-white' : 'bg-zinc-950 border-zinc-700 text-zinc-300 hover:bg-zinc-800'"
+                    class="px-3 py-1.5 border rounded text-sm transition-colors">Bidirectional</button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
   </main>
 </div>
 
@@ -334,7 +424,7 @@
   // ── LED panel ──────────────────────────────────────────────────────────────
   function ledPanel() {
     return {
-      mode: 'off',
+      mode: 'blink',
       ms: 100,
       init() {},
       set(m) {
@@ -408,6 +498,103 @@
         }
         const deg = Math.round((this.pulse - r.min) / (r.max - r.min) * 180);
         return '≈ ' + Math.max(0, Math.min(180, deg)) + '°';
+      },
+    };
+  }
+
+  // ── ESC panel ──────────────────────────────────────────────────────────────
+  function escPanel() {
+    return {
+      state: 'disarmed',
+      type:  'unidirectional',
+      throttle: 0,
+      armCountdown: 0,
+      _armTimer: null,
+      _debounce: null,
+      _warned: false,
+
+      init() {
+        fetch('/esc_info.txt').then(r => r.text()).then(t => {
+          const p = Object.fromEntries(
+            t.trim().split('\n').map(l => l.split('=').map(s => s.trim()))
+          );
+          this.state = p.state || 'disarmed';
+          this.type  = p.type  || 'unidirectional';
+        }).catch(() => {});
+        window.addEventListener('beforeunload', () => {
+          if (this.state !== 'disarmed') navigator.sendBeacon('/esc?disarm');
+        });
+      },
+
+      startArm() {
+        if (this.state !== 'disarmed') return;
+        if (!this._warned) {
+          this._warned = true;
+          if (!confirm('Safety check: ensure no load is attached to the motor.\nDisconnect propellers and gearboxes before arming.'))
+            return;
+        }
+        this.armCountdown = 1;
+        this._armTimer = setInterval(() => {
+          this.armCountdown--;
+          if (this.armCountdown <= 0) {
+            clearInterval(this._armTimer);
+            this._armTimer = null;
+            this.armCountdown = 0;
+            send('/esc?arm');
+            this.state = 'arming';
+            this._pollState();
+          }
+        }, 1000);
+      },
+      cancelArm() {
+        if (this._armTimer) {
+          clearInterval(this._armTimer);
+          this._armTimer = null;
+          this.armCountdown = 0;
+        }
+      },
+      _pollState() {
+        fetch('/esc_info.txt').then(r => r.text()).then(t => {
+          const p = Object.fromEntries(
+            t.trim().split('\n').map(l => l.split('=').map(s => s.trim()))
+          );
+          this.state = p.state || 'disarmed';
+          if (this.state === 'arming') setTimeout(() => this._pollState(), 500);
+        }).catch(() => {});
+      },
+
+      disarm() {
+        send('/esc?disarm');
+        this.state    = 'disarmed';
+        this.throttle = 0;
+      },
+      brake() {
+        this.throttle = 0;
+        send('/esc?brake');
+      },
+      setType(t) {
+        if (this.state === 'armed') this.disarm();
+        this.type     = t;
+        this.throttle = 0;
+      },
+      debounceSend() {
+        if (this.state !== 'armed') return;
+        clearTimeout(this._debounce);
+        const v = this.throttle;
+        const param = this.type === 'bidirectional' ? 'speed' : 'throttle';
+        this._debounce = setTimeout(() => send('/esc?' + param + '=' + v), 100);
+      },
+
+      stateLabel() {
+        if (this.armCountdown > 0) return 'HOLD… ' + this.armCountdown + 's';
+        return this.state.toUpperCase();
+      },
+      throttleLabel() {
+        if (this.type === 'bidirectional') {
+          if (Math.abs(this.throttle) < 3) return 'BRAKE';
+          return (this.throttle > 0 ? 'FWD ' : 'REV ') + Math.abs(this.throttle) + '%';
+        }
+        return this.throttle + '%';
       },
     };
   }

@@ -288,6 +288,48 @@ PWM: 125 MHz / (100 × 25000) = 50 Hz. Level = pulse_us × 25000 / 20000.
 
 **Safety:** `servo_set_us` clamps all pulses to `[min_us, max_us]`. Type-mismatch calls (`set_deg` on continuous, `set_speed` on positional) are silent no-ops. `servo_safe_stop` always works.
 
+### `lib/esc` — ESC (Electronic Speed Controller) PWM
+
+```c
+#include "esc.h"
+
+// Presets
+extern const esc_config_t ESC_STANDARD;  // unidirectional, 1000–2000 µs, 1000 µs off, 3 s arm
+extern const esc_config_t ESC_BIDIR;     // bidirectional, 1000–2000 µs, 1500 µs stop, ±25 µs deadband, 3 s arm
+
+void esc_init(uint gpio, const esc_config_t *cfg);
+
+// State machine — call esc_update() every main loop iteration
+void        esc_arm(uint gpio);           // DISARMED → ARMING; holds min_us for cfg.arm_ms
+void        esc_disarm(uint gpio);        // → DISARMED; sends min_us
+esc_state_t esc_get_state(uint gpio);     // ESC_STATE_DISARMED | ARMING | ARMED
+
+void esc_update(uint gpio);               // drives arm timer + 500 ms failsafe; call every loop
+
+// All no-ops unless ARMED
+void esc_set_throttle(uint gpio, float throttle);  // unidirectional: 0.0–1.0
+void esc_set_speed(uint gpio, float speed);         // bidirectional: -1.0–+1.0 (deadband applied)
+void esc_brake(uint gpio);                          // sends neutral_us; resets failsafe timer
+void esc_set_us(uint gpio, uint16_t pulse_us);      // raw; clamped to [min_us, max_us]
+```
+
+Link: `esc` (pulls in `pico_stdlib`, `hardware_pwm`, `hardware_clocks`)
+
+PWM: same 50 Hz timing as `lib/servo` — 125 MHz / (100 × 25000).
+
+**State machine:**
+```
+DISARMED ──esc_arm()──► ARMING ──arm_ms elapsed──► ARMED
+ARMED / ARMING ──esc_disarm()──► DISARMED
+```
+While `ARMING`, `esc_update()` holds `min_us` each loop. All throttle functions are silent no-ops unless `ARMED`.
+
+**Failsafe:** If no throttle command is received for >500 ms while `ARMED`, `esc_update()` sends `neutral_us`. Reset by any call to `esc_set_throttle`, `esc_set_speed`, `esc_set_us`, or `esc_brake`.
+
+**Deadband (bidirectional):** `esc_set_speed()` clamps to `neutral_us` if the computed pulse falls within `neutral_us ± deadband_us`, preventing unintended slow creep.
+
+**CYW43 arch rule:** `esc` links only `hardware_pwm` + `hardware_clocks` — no arch conflict with `wifi`.
+
 ## Secrets
 
 Wi-Fi credentials and other secrets live in `secrets.h` at the repo root (gitignored). The committed `secrets.h.example` shows the required defines:

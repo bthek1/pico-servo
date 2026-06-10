@@ -1,6 +1,7 @@
 #include "wifi.h"
 #include "serial.h"
 #include "servo.h"
+#include "esc.h"
 #include "secrets.h"
 #include "pico/stdlib.h"
 #include "lwip/apps/httpd.h"
@@ -10,10 +11,13 @@
 #include <stdlib.h>
 
 #define SERVO_GPIO    0
+#define ESC_GPIO      1
 #define SERIAL_BUF_SZ 512
 
 static const servo_config_t *s_servo_model   = &SERVO_SER0006;
 static int16_t               s_servo_trim_us = 0;
+
+static const esc_config_t   *s_esc_model     = &ESC_STANDARD;
 
 static char s_serial_buf[SERIAL_BUF_SZ];
 static int  s_serial_len = 0;
@@ -23,6 +27,9 @@ static int  s_recv_snapshot_len = 0;
 
 static char s_servo_info_buf[64];
 static int  s_servo_info_len = 0;
+
+static char s_esc_info_buf[128];
+static int  s_esc_info_len = 0;
 
 // --- LED state machine ---------------------------------------------------
 
@@ -119,10 +126,37 @@ static const char *cgi_servo(int iIndex, int iNumParams, char *pcParam[], char *
     return "/ok.txt";
 }
 
+// --- CGI: /esc?arm | ?disarm | ?throttle=<0-100> | ?speed=<-100-100> | ?brake
+
+static const char *cgi_esc(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]) {
+    (void)iIndex;
+    for (int i = 0; i < iNumParams; i++) {
+        if (strcmp(pcParam[i], "arm") == 0) {
+            esc_arm(ESC_GPIO);
+        } else if (strcmp(pcParam[i], "disarm") == 0) {
+            esc_disarm(ESC_GPIO);
+        } else if (strcmp(pcParam[i], "throttle") == 0) {
+            int v = atoi(pcValue[i]);
+            if (v < 0)   v = 0;
+            if (v > 100) v = 100;
+            esc_set_throttle(ESC_GPIO, (float)v / 100.0f);
+        } else if (strcmp(pcParam[i], "speed") == 0) {
+            int v = atoi(pcValue[i]);
+            if (v < -100) v = -100;
+            if (v >  100) v =  100;
+            esc_set_speed(ESC_GPIO, (float)v / 100.0f);
+        } else if (strcmp(pcParam[i], "brake") == 0) {
+            esc_brake(ESC_GPIO);
+        }
+    }
+    return "/ok.txt";
+}
+
 static const tCGI cgi_handlers[] = {
     { "/send",  cgi_send  },
     { "/led",   cgi_led   },
     { "/servo", cgi_servo },
+    { "/esc",   cgi_esc   },
 };
 
 // --- Custom fs: /recv.txt ------------------------------------------------
@@ -152,6 +186,25 @@ int fs_open_custom(struct fs_file *file, const char *name) {
         file->flags = 0;
         return 1;
     }
+    if (strcmp(name, "/esc_info.txt") == 0) {
+        esc_state_t st = esc_get_state(ESC_GPIO);
+        const char *state_str = st == ESC_STATE_ARMING ? "arming"
+                              : st == ESC_STATE_ARMED   ? "armed"
+                              : "disarmed";
+        s_esc_info_len = snprintf(s_esc_info_buf, sizeof(s_esc_info_buf),
+            "state=%s\ntype=%s\nmin_us=%d\nmax_us=%d\nneutral_us=%d\ndeadband_us=%d\n",
+            state_str,
+            s_esc_model->type == ESC_BIDIRECTIONAL ? "bidirectional" : "unidirectional",
+            (int)s_esc_model->min_us,
+            (int)s_esc_model->max_us,
+            (int)s_esc_model->neutral_us,
+            (int)s_esc_model->deadband_us);
+        file->data  = s_esc_info_buf;
+        file->len   = s_esc_info_len;
+        file->index = s_esc_info_len;
+        file->flags = 0;
+        return 1;
+    }
     return 0;
 }
 
@@ -163,6 +216,7 @@ int main() {
     serial_init();
     servo_init_config(SERVO_GPIO, s_servo_model);
     servo_safe_stop(SERVO_GPIO);
+    esc_init(ESC_GPIO, s_esc_model);
 
     serial_println("connecting to %s ...", WIFI_SSID);
     if (wifi_connect(WIFI_SSID, WIFI_PASSWORD) != WIFI_OK) {
@@ -173,7 +227,7 @@ int main() {
     serial_println("ip: %s", wifi_get_ip());
 
     httpd_init();
-    http_set_cgi_handlers(cgi_handlers, 3);
+    http_set_cgi_handlers(cgi_handlers, 4);
     serial_println("http ready at http://%s/", wifi_get_ip());
 
     s_next_blink = make_timeout_time_ms(s_blink_ms);
@@ -183,6 +237,7 @@ int main() {
 
     while (true) {
         wifi_poll();
+        esc_update(ESC_GPIO);
 
         if (s_led_mode == LED_BLINK && time_reached(s_next_blink)) {
             wifi_led_toggle();

@@ -1,5 +1,6 @@
 # TODO
 
-- [ ] record current webserver resource usage
+- [x] record current webserver resource usage
 - [ ] add ESC support
-- [ ] add pico resource page
+- [x] add pico resource page
+- [ ] record current webserver resource usage

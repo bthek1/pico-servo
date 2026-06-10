@@ -17,6 +17,7 @@ target_link_libraries(website
     wifi
     serial
     servo
+    esc
     pico_lwip_http
     website_content
 )
