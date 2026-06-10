@@ -28,7 +28,7 @@ When giving instructions that involve the terminal, assume the user is either al
 pico-servo/
 ├── CMakeLists.txt          ← root: SDK init + add_subdirectory for each lib and target
 ├── compile.sh              ← build all, or a single target: ./compile.sh [target]
-├── flash.sh                ← flash a target (default: main): ./flash.sh [target]
+├── flash.sh                ← flash a target (default: website): ./flash.sh [target]
 ├── justfile                ← just commands: deploy, compile, flash, monitor, push-secrets
 ├── secrets.h               ← Wi-Fi credentials (gitignored, copy from secrets.h.example)
 ├── secrets.h.example       ← credential template (committed)
@@ -44,10 +44,11 @@ pico-servo/
 │   ├── servo/              ← servo PWM library
 │   └── wifi/               ← Wi-Fi connection library (lwip, poll mode)
 └── targets/
-    ├── main/               ← primary target (default for flash/deploy)
+    ├── main/               ← legacy primary target
     ├── blink/              ← LED blink demo
     ├── sweep/              ← servo sweep demo
-    └── webserver/          ← Wi-Fi HTTP server; serves HTML/JS at http://<ip>/
+    ├── webserver/          ← Wi-Fi HTTP server (original)
+    └── website/            ← Wi-Fi HTTP server; default for flash/deploy; serves HTML/JS at http://<ip>/
 ```
 
 ## Build & Flash
@@ -57,7 +58,7 @@ pico-servo/
 ./compile.sh              # build all targets
 ./compile.sh sweep        # build one target
 ./compile.sh --clean      # clean build (all)
-./flash.sh                # flash default target (main)
+./flash.sh                # flash default target (website)
 ./flash.sh sweep          # flash a specific target
 picocom -b 115200 /dev/ttyACM0   # serial monitor
 ```
@@ -65,7 +66,7 @@ picocom -b 115200 /dev/ttyACM0   # serial monitor
 Or via justfile (run locally, SSH to Pi automatically):
 
 ```bash
-just deploy           # pull + push-secrets + compile + flash main
+just deploy           # pull + push-secrets + compile + flash website
 just deploy sweep     # pull + push-secrets + compile + flash sweep
 just compile sweep    # compile one target on Pi
 just flash sweep      # flash one target on Pi
@@ -75,12 +76,12 @@ just push-secrets     # copy secrets.h to Pi (run after editing credentials)
 
 Build output is in `build/` (gitignored). UF2 files land at `build/targets/<target>/<target>.uf2`.
 
-The default target is **`main`** (`build/targets/main/main.uf2`).
+The default target is **`website`** (`build/targets/website/website.uf2`).
 
 Manual flash:
 
 ```bash
-cp build/targets/main/main_fw.uf2 /media/bthek1/RPI-RP2/
+cp build/targets/website/website.uf2 /media/bthek1/RPI-RP2/
 ```
 
 ## SDK & CMake Conventions
@@ -223,6 +224,38 @@ the data is already in memory (lwIP reads it directly without calling `fs_read_c
 `response_buf` must remain valid for the lifetime of the HTTP response.
 
 See `targets/webserver/` for a working bidirectional serial terminal using both patterns.
+
+### Frontend Tech Stack (webserver UI)
+
+For dashboard and config pages served from the Pico, use **htmx + Pico.css** as the baseline. Both load from CDN — zero flash storage cost.
+
+| Layer | Library | When to add |
+|---|---|---|
+| Styling | Pico.css | Always |
+| Interactivity | htmx | Always |
+| Reactive UI | Alpine.js | When you need live validation, toggles, local state |
+| Charts | uPlot | When you need time-series plots |
+
+**Why this stack:**
+- The Pico only serves simple HTML fragments — no JSON parsing, no JS state management on the MCU
+- htmx handles polling, form submission, and partial updates with HTML attributes alone
+- Pico.css gives clean responsive UI from semantic HTML, no utility classes
+
+**Polling example** (sensor data every 2 s):
+```html
+<div hx-get="/temperature" hx-trigger="every 2s">24°C</div>
+```
+
+**CDN links** (put in `<head>`):
+```html
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+<script src="https://unpkg.com/htmx.org@2/dist/htmx.min.js"></script>
+<!-- Add only if needed: -->
+<script src="https://unpkg.com/alpinejs@3/dist/cdn.min.js" defer></script>
+<script src="https://unpkg.com/uplot@1/dist/uPlot.iife.min.js"></script>
+```
+
+The MCU endpoint returns an HTML fragment (not a full page) for htmx swaps; `fs_open_custom` is the right pattern for those dynamic responses.
 
 ### `lib/servo` — Servo PWM
 
