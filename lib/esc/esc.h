@@ -39,3 +39,4 @@ void esc_set_throttle(uint gpio, float throttle);  // unidirectional: 0.0–1.0
 void esc_set_speed(uint gpio, float speed);         // bidirectional: -1.0–+1.0
 void esc_brake(uint gpio);                          // sends neutral_us
 void esc_set_us(uint gpio, uint16_t pulse_us);      // raw; clamped to [min_us, max_us]
+uint16_t esc_get_us(uint gpio);                     // last pulse actually sent (µs), including failsafe

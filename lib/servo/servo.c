@@ -14,6 +14,7 @@ const servo_config_t SERVO_MG996R  = { SERVO_CONTINUOUS, 1000, 2000, 1500 };
 
 static servo_config_t s_cfg[MAX_GPIO];
 static bool           s_inited[MAX_GPIO];
+static uint16_t       s_last_us[MAX_GPIO];
 
 void servo_init_config(uint gpio, const servo_config_t *cfg) {
     gpio_set_function(gpio, GPIO_FUNC_PWM);
@@ -24,6 +25,7 @@ void servo_init_config(uint gpio, const servo_config_t *cfg) {
     if (gpio < MAX_GPIO) {
         s_cfg[gpio]    = *cfg;
         s_inited[gpio] = true;
+        s_last_us[gpio] = cfg->stop_us;
     }
 }
 
@@ -42,6 +44,11 @@ void servo_set_us(uint gpio, uint16_t pulse_us) {
     if (pulse_us > cfg->max_us) pulse_us = cfg->max_us;
     uint16_t level = (uint16_t)((uint32_t)pulse_us * (SERVO_WRAP + 1) / SERVO_PERIOD);
     pwm_set_gpio_level(gpio, level);
+    if (gpio < MAX_GPIO) s_last_us[gpio] = pulse_us;
+}
+
+uint16_t servo_get_us(uint gpio) {
+    return (gpio < MAX_GPIO && s_inited[gpio]) ? s_last_us[gpio] : 0;
 }
 
 void servo_set_deg(uint gpio, float degrees) {

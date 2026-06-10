@@ -31,6 +31,12 @@ static int  s_servo_info_len = 0;
 static char s_esc_info_buf[128];
 static int  s_esc_info_len = 0;
 
+static char s_servo_pulse_buf[16];
+static int  s_servo_pulse_len = 0;
+
+static char s_esc_pulse_buf[16];
+static int  s_esc_pulse_len = 0;
+
 // --- LED state machine ---------------------------------------------------
 
 typedef enum { LED_OFF, LED_ON, LED_BLINK } led_mode_t;
@@ -205,6 +211,24 @@ int fs_open_custom(struct fs_file *file, const char *name) {
         file->data  = s_esc_info_buf;
         file->len   = s_esc_info_len;
         file->index = s_esc_info_len;
+        file->flags = 0;
+        return 1;
+    }
+    if (strcmp(name, "/servo_pulse.txt") == 0) {
+        s_servo_pulse_len = snprintf(s_servo_pulse_buf, sizeof(s_servo_pulse_buf),
+            "%d\n", (int)servo_get_us(SERVO_GPIO));
+        file->data  = s_servo_pulse_buf;
+        file->len   = s_servo_pulse_len;
+        file->index = s_servo_pulse_len;
+        file->flags = 0;
+        return 1;
+    }
+    if (strcmp(name, "/esc_pulse.txt") == 0) {
+        s_esc_pulse_len = snprintf(s_esc_pulse_buf, sizeof(s_esc_pulse_buf),
+            "%d\n", (int)esc_get_us(ESC_GPIO));
+        file->data  = s_esc_pulse_buf;
+        file->len   = s_esc_pulse_len;
+        file->index = s_esc_pulse_len;
         file->flags = 0;
         return 1;
     }

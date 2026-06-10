@@ -17,6 +17,7 @@ typedef struct {
     esc_state_t     state;
     absolute_time_t arm_deadline;
     absolute_time_t last_cmd;
+    uint16_t        last_us;
     bool            inited;
 } esc_slot_t;
 
@@ -25,6 +26,12 @@ static esc_slot_t s_slots[MAX_GPIO];
 static void raw_pulse(uint gpio, uint16_t pulse_us) {
     uint16_t level = (uint16_t)((uint32_t)pulse_us * (ESC_WRAP + 1) / ESC_PERIOD);
     pwm_set_gpio_level(gpio, level);
+    if (gpio < MAX_GPIO) s_slots[gpio].last_us = pulse_us;
+}
+
+uint16_t esc_get_us(uint gpio) {
+    esc_slot_t *s = get_slot(gpio);
+    return s ? s->last_us : 0;
 }
 
 void esc_init(uint gpio, const esc_config_t *cfg) {

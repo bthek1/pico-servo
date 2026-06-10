@@ -33,3 +33,5 @@ void servo_set_speed(uint gpio, float speed);
 void servo_set_stop_us(uint gpio, uint16_t stop_us);
 // Safe stop: sends stop_us regardless of type
 void servo_safe_stop(uint gpio);
+// Returns the last pulse width actually sent (µs), or 0 if uninitialised
+uint16_t servo_get_us(uint gpio);

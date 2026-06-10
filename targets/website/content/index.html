@@ -7,6 +7,12 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/htmx.org@2/dist/htmx.min.js"></script>
   <script src="https://unpkg.com/alpinejs@3/dist/cdn.min.js" defer></script>
+  <link rel="stylesheet" href="https://unpkg.com/uplot@1/dist/uPlot.min.css">
+  <script src="https://unpkg.com/uplot@1/dist/uPlot.iife.min.js"></script>
+  <style>
+    .uplot, .uplot *, .u-wrap { box-sizing: border-box; }
+    .u-wrap { position: relative; }
+  </style>
   <style>
     @keyframes hpulse  { 0%,100%{opacity:1} 50%{opacity:.3}  }
     @keyframes ldpulse { 0%,100%{opacity:1} 50%{opacity:.15} }
@@ -291,6 +297,13 @@
                 x-text="mode === 'continuous' ? '■ STOP' : 'Centre (1500 µs)'">
         </button>
 
+        <div class="bg-zinc-950 border border-zinc-800 rounded-lg p-3"
+             x-data="pulseGraph('/servo_pulse.txt', 400, 2600)"
+             x-init="init()">
+          <div class="text-xs uppercase text-zinc-500 tracking-wide mb-2">Pulse History</div>
+          <div x-ref="canvas"></div>
+        </div>
+
       </div>
     </section>
 
@@ -379,6 +392,13 @@
           </div>
         </div>
 
+        <div class="bg-zinc-950 border border-zinc-800 rounded-lg p-3"
+             x-data="pulseGraph('/esc_pulse.txt', 900, 2100)"
+             x-init="init()">
+          <div class="text-xs uppercase text-zinc-500 tracking-wide mb-2">Pulse History</div>
+          <div x-ref="canvas"></div>
+        </div>
+
       </div>
     </section>
 
@@ -420,6 +440,62 @@
       dot.classList.remove('text-green-500', 'animate-hpulse');
       dot.classList.add('text-red-500');
     });
+  }
+
+  // ── Pulse history graph ────────────────────────────────────────────────────
+  function pulseGraph(endpoint, yMin, yMax) {
+    return {
+      _chart: null,
+      _xs: [],
+      _ys: [],
+      _t0: Date.now(),
+      _timer: null,
+
+      init() {
+        this.$nextTick(() => {
+          const el = this.$refs.canvas;
+          this._chart = new uPlot({
+            width: el.offsetWidth || 400,
+            height: 140,
+            cursor: { show: false },
+            legend: { show: false },
+            series: [
+              {},
+              { stroke: '#ef4444', width: 1.5, fill: 'rgba(239,68,68,0.06)' },
+            ],
+            axes: [
+              {
+                stroke: '#52525b',
+                grid: { stroke: '#27272a', width: 1 },
+                ticks: { stroke: '#27272a' },
+                values: (u, vs) => vs.map(v => v != null ? Math.round(v) + 's' : ''),
+              },
+              {
+                stroke: '#52525b',
+                grid: { stroke: '#27272a', width: 1 },
+                ticks: { stroke: '#27272a' },
+                size: 52,
+              },
+            ],
+            scales: { x: { time: false }, y: { range: [yMin, yMax] } },
+            padding: [8, 8, 0, 0],
+          }, [[0], [null]], el);
+          this._timer = setInterval(() => this._fetch(), 200);
+        });
+      },
+
+      _fetch() {
+        fetch(endpoint).then(r => r.text()).then(t => {
+          const v = parseInt(t);
+          if (isNaN(v) || v === 0) return;
+          const now = (Date.now() - this._t0) / 1000;
+          this._xs.push(now);
+          this._ys.push(v);
+          if (this._xs.length > 300) { this._xs.shift(); this._ys.shift(); }
+          this._chart.setData([this._xs, this._ys]);
+        }).catch(() => {});
+      },
+    };
   }
 
   // ── LED panel ──────────────────────────────────────────────────────────────
