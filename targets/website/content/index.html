@@ -1,123 +1,57 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Pico W</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/htmx.org@2/dist/htmx.min.js"></script>
   <script src="https://unpkg.com/alpinejs@3/dist/cdn.min.js" defer></script>
   <style>
-    body { padding: 0; }
-
-    header {
-      padding: .6rem 1.25rem;
-      border-bottom: 1px solid var(--pico-muted-border-color);
-      display: flex; align-items: center; justify-content: space-between;
-    }
-    .brand { font-weight: 600; display: flex; align-items: center; gap: .5rem; }
-    @keyframes hpulse { 0%,100%{opacity:1} 50%{opacity:.3} }
-    #status-dot { animation: hpulse 2s infinite; color: var(--pico-color-green-500); }
-    #status-dot.error { animation: none; color: var(--pico-color-red-500); }
-    .meta { color: var(--pico-muted-color); font-size: .85rem; }
-
-    nav.tabs { padding: 0 1.25rem; border-bottom: 1px solid var(--pico-muted-border-color); }
-    nav.tabs ul { margin: 0; padding: 0; display: flex; list-style: none; gap: .25rem; }
-    nav.tabs button {
-      background: none; border: none;
-      border-bottom: 2px solid transparent;
-      color: var(--pico-muted-color);
-      cursor: pointer; padding: .65rem 1rem; font-size: .9rem;
-      transition: color .15s, border-color .15s;
-    }
-    nav.tabs button:hover { color: var(--pico-color); }
-    nav.tabs button[aria-current] {
-      color: var(--pico-primary);
-      border-bottom-color: var(--pico-primary);
-    }
-
-    main { padding: 1.25rem; }
-
-    /* Terminal */
-    #term-out {
-      display: block; width: 100%;
-      height: 60vh; overflow-y: auto;
-      background: var(--pico-card-background-color);
-      border: 1px solid var(--pico-muted-border-color);
-      border-radius: var(--pico-border-radius);
-      padding: .6rem; margin-bottom: .75rem;
-      font-family: monospace; font-size: .85rem;
-      white-space: pre-wrap;
-    }
-    #term-form { display: flex; gap: .5rem; margin: 0; }
-    #term-form input  { flex: 1; margin: 0; }
-    #term-form button { width: auto; margin: 0; }
-
-    /* LED dot */
-    .led-dot {
-      display: inline-block; width: 14px; height: 14px;
-      border-radius: 50%; background: var(--pico-muted-border-color);
-      vertical-align: middle; transition: background .3s;
-    }
-    .led-dot[data-state="on"] {
-      background: var(--pico-color-green-500);
-      box-shadow: 0 0 6px var(--pico-color-green-500);
-    }
+    @keyframes hpulse  { 0%,100%{opacity:1} 50%{opacity:.3}  }
     @keyframes ldpulse { 0%,100%{opacity:1} 50%{opacity:.15} }
-    .led-dot[data-state="blink"] {
-      background: var(--pico-color-green-500);
-      animation: ldpulse .2s infinite;
-    }
-
-    /* Servo */
-    .pulse-display {
-      font-size: 2.5rem; font-weight: 700;
-      color: var(--pico-primary); text-align: center;
-    }
-    .pulse-sub {
-      text-align: center; color: var(--pico-muted-color);
-      margin-top: -.5rem; margin-bottom: .75rem;
-    }
-    .range-warning {
-      display: none; padding: .5rem .75rem; margin-top: .5rem;
-      background: color-mix(in srgb, var(--pico-color-amber-500) 10%, transparent);
-      border: 1px solid var(--pico-color-amber-500);
-      border-radius: var(--pico-border-radius);
-      font-size: .85rem; color: var(--pico-color-amber-300);
-    }
-    .range-warning.visible { display: block; }
+    .animate-hpulse  { animation: hpulse  2s infinite; }
+    .animate-ldpulse { animation: ldpulse .2s infinite; }
+    input[type=range] { accent-color: #ef4444; cursor: pointer; }
   </style>
 </head>
-<body>
+<body class="bg-zinc-950 text-zinc-100 min-h-screen">
 
-<header>
-  <span class="brand">
-    <span id="status-dot">●</span>
+<!-- Header -->
+<header class="flex justify-between items-center px-5 py-2 bg-zinc-900 border-b border-zinc-800">
+  <span class="font-semibold flex items-center gap-2">
+    <span id="status-dot" class="animate-hpulse text-green-500">●</span>
     Pico W
   </span>
-  <span id="ip-label" class="meta"></span>
+  <span id="ip-label" class="text-zinc-400 text-sm"></span>
 </header>
 
+<!-- Tabs -->
 <div x-data="{ tab: 'terminal' }">
 
-  <nav class="tabs">
-    <ul>
-      <li><button @click="tab='terminal'" :aria-current="tab==='terminal' || undefined">Terminal</button></li>
-      <li><button @click="tab='light'"    :aria-current="tab==='light'    || undefined">Light</button></li>
-      <li><button @click="tab='servo'"    :aria-current="tab==='servo'    || undefined">Servo</button></li>
-    </ul>
+  <nav class="flex bg-zinc-900 border-b border-zinc-800 px-5">
+    <button @click="tab='terminal'"
+            :class="tab==='terminal' ? 'text-red-500 border-red-500' : 'text-zinc-400 border-transparent hover:text-zinc-100'"
+            class="border-b-2 py-2.5 px-4 text-sm transition-colors bg-transparent">Terminal</button>
+    <button @click="tab='light'"
+            :class="tab==='light' ? 'text-red-500 border-red-500' : 'text-zinc-400 border-transparent hover:text-zinc-100'"
+            class="border-b-2 py-2.5 px-4 text-sm transition-colors bg-transparent">Light</button>
+    <button @click="tab='servo'"
+            :class="tab==='servo' ? 'text-red-500 border-red-500' : 'text-zinc-400 border-transparent hover:text-zinc-100'"
+            class="border-b-2 py-2.5 px-4 text-sm transition-colors bg-transparent">Servo</button>
   </nav>
 
-  <main>
+  <main class="p-5">
 
     <!-- Terminal -->
     <section x-show="tab==='terminal'">
       <output id="term-out"
+              class="block w-full h-[60vh] overflow-y-auto bg-zinc-900 border border-zinc-800 rounded p-2 font-mono text-sm text-zinc-200 whitespace-pre-wrap mb-3"
               hx-get="/recv.txt"
               hx-trigger="every 200ms"
-              hx-swap="beforeend"
-      ></output>
-      <form id="term-form"
+              hx-swap="beforeend">
+      </output>
+      <form class="flex gap-2"
             x-data="{ msg: '' }"
             @submit.prevent="
               const out = document.getElementById('term-out');
@@ -125,83 +59,130 @@
               out.scrollTop = out.scrollHeight;
               fetch('/send?data=' + encodeURIComponent(msg));
               msg = ''">
-        <input x-model="msg" type="text" placeholder="type and press Enter…" autocomplete="off">
-        <button type="submit">→</button>
+        <input x-model="msg" type="text" placeholder="type and press Enter…" autocomplete="off"
+               class="flex-1 bg-zinc-900 border border-zinc-800 rounded px-3 py-1.5 text-sm font-mono text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-zinc-600">
+        <button type="submit"
+                class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded text-sm transition-colors">→</button>
       </form>
     </section>
 
     <!-- Light -->
     <section x-show="tab==='light'" x-data="ledPanel()" x-init="init()">
-      <article>
-        <header style="display:flex; align-items:center; gap:.75rem; margin-bottom:1rem">
-          <span class="led-dot" :data-state="mode"></span>
-          <strong x-text="mode.toUpperCase()"></strong>
-        </header>
+      <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-5 space-y-5">
 
-        <div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:1rem">
-          <button @click="set('on')"    :aria-pressed="mode==='on'"    class="secondary">ON</button>
-          <button @click="set('blink')" :aria-pressed="mode==='blink'" class="secondary">BLINK</button>
-          <button @click="set('off')"   :aria-pressed="mode==='off'"   class="secondary">OFF</button>
+        <div class="flex items-center gap-3">
+          <span class="inline-block w-3.5 h-3.5 rounded-full transition-all"
+                :class="{
+                  'bg-zinc-700': mode === 'off',
+                  'bg-green-500 shadow-[0_0_6px_#22c55e]': mode === 'on',
+                  'bg-green-500 animate-ldpulse': mode === 'blink'
+                }"
+                :style="mode === 'blink' ? 'animation-duration:' + (ms * 2) + 'ms' : ''">
+          </span>
+          <span class="font-semibold" x-text="mode.toUpperCase()"></span>
         </div>
 
-        <label>
-          Blink speed —
-          <span x-text="ms < 1000 ? ms + ' ms' : (ms / 1000).toFixed(1) + ' s'"></span>
-          <input type="range" min="50" max="5000" x-model.number="ms"
+        <div>
+          <div class="text-xs uppercase text-zinc-500 tracking-wide mb-2">Mode</div>
+          <div class="flex gap-2">
+            <button @click="set('on')"
+                    :class="mode==='on'    ? 'bg-zinc-600 border-zinc-500 text-white' : 'bg-zinc-950 border-zinc-700 text-zinc-300 hover:bg-zinc-800'"
+                    class="px-3 py-1.5 border rounded text-sm transition-colors">ON</button>
+            <button @click="set('blink')"
+                    :class="mode==='blink' ? 'bg-zinc-600 border-zinc-500 text-white' : 'bg-zinc-950 border-zinc-700 text-zinc-300 hover:bg-zinc-800'"
+                    class="px-3 py-1.5 border rounded text-sm transition-colors">BLINK</button>
+            <button @click="set('off')"
+                    :class="mode==='off'   ? 'bg-zinc-600 border-zinc-500 text-white' : 'bg-zinc-950 border-zinc-700 text-zinc-300 hover:bg-zinc-800'"
+                    class="px-3 py-1.5 border rounded text-sm transition-colors">OFF</button>
+          </div>
+        </div>
+
+        <div>
+          <div class="text-xs uppercase text-zinc-500 tracking-wide mb-2">
+            Blink Speed —
+            <span x-text="ms < 1000 ? ms + ' ms' : (ms / 1000).toFixed(1) + ' s'"></span>
+          </div>
+          <input type="range" min="50" max="5000" x-model.number="ms" class="w-full"
                  @change="if (mode === 'blink') send('/led?state=blink&ms=' + ms)">
-        </label>
-
-        <div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.5rem">
-          <button class="outline secondary" @click="blinkPreset(50)">50 ms</button>
-          <button class="outline secondary" @click="blinkPreset(100)">100 ms</button>
-          <button class="outline secondary" @click="blinkPreset(250)">250 ms</button>
-          <button class="outline secondary" @click="blinkPreset(500)">500 ms</button>
-          <button class="outline secondary" @click="blinkPreset(1000)">1 s</button>
         </div>
-      </article>
+
+        <div>
+          <div class="text-xs uppercase text-zinc-500 tracking-wide mb-2">Presets</div>
+          <div class="flex gap-2 flex-wrap">
+            <button @click="blinkPreset(50)"   class="px-3 py-1 bg-zinc-950 border border-zinc-700 rounded text-sm text-zinc-300 hover:bg-zinc-800 transition-colors">50 ms</button>
+            <button @click="blinkPreset(100)"  class="px-3 py-1 bg-zinc-950 border border-zinc-700 rounded text-sm text-zinc-300 hover:bg-zinc-800 transition-colors">100 ms</button>
+            <button @click="blinkPreset(250)"  class="px-3 py-1 bg-zinc-950 border border-zinc-700 rounded text-sm text-zinc-300 hover:bg-zinc-800 transition-colors">250 ms</button>
+            <button @click="blinkPreset(500)"  class="px-3 py-1 bg-zinc-950 border border-zinc-700 rounded text-sm text-zinc-300 hover:bg-zinc-800 transition-colors">500 ms</button>
+            <button @click="blinkPreset(1000)" class="px-3 py-1 bg-zinc-950 border border-zinc-700 rounded text-sm text-zinc-300 hover:bg-zinc-800 transition-colors">1 s</button>
+          </div>
+        </div>
+
+      </div>
     </section>
 
     <!-- Servo -->
     <section x-show="tab==='servo'" x-data="servoPanel()" x-init="init()">
-      <article>
-        <div class="pulse-display" x-text="pulse + ' µs'"></div>
-        <div class="pulse-sub"     x-text="label()"></div>
+      <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-5 space-y-5">
 
-        <label>
-          Pulse width
-          <input type="range" :min="range.min" :max="range.max" x-model.number="pulse"
+        <div>
+          <div class="text-4xl font-bold text-red-500 text-center" x-text="pulse + ' µs'"></div>
+          <div class="text-center text-zinc-400 mt-1" x-text="label()"></div>
+        </div>
+
+        <div>
+          <div class="text-xs uppercase text-zinc-500 tracking-wide mb-2">Pulse Width</div>
+          <input type="range" :min="range.min" :max="range.max" x-model.number="pulse" class="w-full"
                  @input="debounceSend('/servo?pulse=' + pulse)">
-        </label>
-
-        <div style="display:flex; gap:.5rem; margin-bottom:1rem">
-          <button @click="setMode('positional')" :aria-pressed="mode==='positional'" class="secondary">Positional</button>
-          <button @click="setMode('continuous')"  :aria-pressed="mode==='continuous'"  class="secondary">Continuous</button>
+          <div class="flex justify-between text-xs text-zinc-600 mt-1">
+            <span x-text="range.min + ' µs'"></span>
+            <span x-text="range.max + ' µs'"></span>
+          </div>
         </div>
 
-        <div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:.25rem">
-          <button @click="setRange('standard')" :aria-pressed="rangeKey==='standard'" class="outline secondary">Standard (1000–2000 µs)</button>
-          <button @click="setRange('extended')" :aria-pressed="rangeKey==='extended'" class="outline secondary">Extended (600–2400 µs) ⚠</button>
-        </div>
-        <div class="range-warning" :class="{ visible: rangeKey === 'extended' }">
-          ⚠ Extended range may damage servo gears. Avoid sustained use at limits.
+        <div>
+          <div class="text-xs uppercase text-zinc-500 tracking-wide mb-2">Mode</div>
+          <div class="flex gap-2">
+            <button @click="setMode('positional')"
+                    :class="mode==='positional' ? 'bg-zinc-600 border-zinc-500 text-white' : 'bg-zinc-950 border-zinc-700 text-zinc-300 hover:bg-zinc-800'"
+                    class="px-3 py-1.5 border rounded text-sm transition-colors">Positional</button>
+            <button @click="setMode('continuous')"
+                    :class="mode==='continuous' ? 'bg-zinc-600 border-zinc-500 text-white' : 'bg-zinc-950 border-zinc-700 text-zinc-300 hover:bg-zinc-800'"
+                    class="px-3 py-1.5 border rounded text-sm transition-colors">Continuous</button>
+          </div>
         </div>
 
-        <template x-if="mode === 'continuous'">
-          <label style="margin-top:.75rem">
-            Stop trim —
-            <span x-text="(trim >= 0 ? '+' : '') + trim + ' µs'"></span>
-            <input type="range" min="-50" max="50" x-model.number="trim"
-                   @change="send('/servo?trim=' + trim)">
-          </label>
-        </template>
+        <div>
+          <div class="text-xs uppercase text-zinc-500 tracking-wide mb-2">Range</div>
+          <div class="flex gap-2 flex-wrap">
+            <button @click="setRange('standard')"
+                    :class="rangeKey==='standard' ? 'bg-zinc-600 border-zinc-500 text-white' : 'bg-zinc-950 border-zinc-700 text-zinc-300 hover:bg-zinc-800'"
+                    class="px-3 py-1.5 border rounded text-sm transition-colors">Standard (1000–2000 µs)</button>
+            <button @click="setRange('extended')"
+                    :class="rangeKey==='extended' ? 'bg-amber-900/60 border-amber-600 text-amber-300' : 'bg-zinc-950 border-zinc-700 text-zinc-300 hover:bg-zinc-800'"
+                    class="px-3 py-1.5 border rounded text-sm transition-colors">Extended (600–2400 µs) ⚠</button>
+          </div>
+          <div x-show="rangeKey === 'extended'"
+               class="mt-2 px-3 py-2 bg-amber-950/50 border border-amber-800 rounded text-amber-300 text-sm">
+            ⚠ Extended range may damage servo gears. Avoid sustained use at limits.
+          </div>
+        </div>
 
-        <button @click="action()" style="width:100%; margin-top:.75rem"
-                :style="mode==='continuous'
-                  ? 'background:var(--pico-color-red-600); border-color:var(--pico-color-red-600)'
-                  : 'background:var(--pico-color-green-800); border-color:var(--pico-color-green-500); color:var(--pico-color-green-300)'"
+        <div x-show="mode === 'continuous'">
+          <div class="text-xs uppercase text-zinc-500 tracking-wide mb-2">
+            Stop Trim — <span x-text="(trim >= 0 ? '+' : '') + trim + ' µs'"></span>
+          </div>
+          <input type="range" min="-50" max="50" x-model.number="trim" class="w-full"
+                 @change="send('/servo?trim=' + trim)">
+        </div>
+
+        <button @click="action()" class="w-full py-2.5 rounded font-semibold text-sm transition-colors"
+                :class="mode === 'continuous'
+                  ? 'bg-red-700 hover:bg-red-600 border border-red-600 text-white'
+                  : 'bg-green-900 hover:bg-green-800 border border-green-700 text-green-300'"
                 x-text="mode === 'continuous' ? '■ STOP' : 'Centre (1500 µs)'">
         </button>
-      </article>
+
+      </div>
     </section>
 
   </main>
@@ -210,21 +191,29 @@
 <script>
   document.getElementById('ip-label').textContent = location.hostname;
 
-  // htmx connectivity indicator
   document.body.addEventListener('htmx:responseError', () => {
-    document.getElementById('status-dot').classList.add('error');
+    const dot = document.getElementById('status-dot');
+    dot.classList.remove('text-green-500', 'animate-hpulse');
+    dot.classList.add('text-red-500');
   });
   document.body.addEventListener('htmx:afterRequest', e => {
-    if (e.detail.successful) document.getElementById('status-dot').classList.remove('error');
+    if (e.detail.successful) {
+      const dot = document.getElementById('status-dot');
+      dot.classList.remove('text-red-500');
+      dot.classList.add('text-green-500', 'animate-hpulse');
+    }
   });
-  // auto-scroll terminal on new content
   document.body.addEventListener('htmx:afterSwap', e => {
     if (e.target && e.target.id === 'term-out')
       e.target.scrollTop = e.target.scrollHeight;
   });
 
   function send(url) {
-    fetch(url).catch(() => document.getElementById('status-dot').classList.add('error'));
+    fetch(url).catch(() => {
+      const dot = document.getElementById('status-dot');
+      dot.classList.remove('text-green-500', 'animate-hpulse');
+      dot.classList.add('text-red-500');
+    });
   }
 
   // ── LED panel ──────────────────────────────────────────────────────────────
@@ -276,7 +265,7 @@
         });
       },
 
-      send(url)       { send(url); },
+      send(url) { send(url); },
       debounceSend(url) {
         clearTimeout(this._timer);
         this._timer = setTimeout(() => send(url), 100);

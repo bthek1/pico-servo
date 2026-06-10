@@ -1,30 +1,35 @@
-For a microcontroller dashboard/config page, I'd go with:
+For a microcontroller dashboard/config page, use:
 
-**htmx + Pico.css**
+**Tailwind CSS + htmx + Alpine.js**
 
-That's basically it. Here's why it's the right fit:
+All load from CDN — zero flash storage cost.
 
-- **htmx** handles all your dynamic updates (poll sensor data, submit config forms, WebSocket support) with just HTML attributes — zero JS to write
-- **Pico.css** gives you a clean, responsive UI with semantic HTML, no classes needed
-- Both load from CDN, using zero flash storage
-- The MCU just serves simple HTML fragments — no JSON parsing, no JS state management
+- **Tailwind CSS** (play CDN) handles all styling with utility classes. Full control over dark UI, no semantic-HTML constraints, no framework opinions.
+- **htmx** handles all dynamic updates (poll sensor data, submit config forms) with just HTML attributes — zero JS to write for server interactions.
+- **Alpine.js** handles reactive client state: tab switching, button toggles, sliders, local display values — lightweight, no build step.
 
-For example, polling a sensor every 2 seconds is just:
+**CDN links:**
 ```html
-<div hx-get="/temperature" hx-trigger="every 2s">24°C</div>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/htmx.org@2/dist/htmx.min.js"></script>
+<script src="https://unpkg.com/alpinejs@3/dist/cdn.min.js" defer></script>
 ```
 
-The only reason to add anything else is if you need **charts**, in which case add **uPlot** — it's the most MCU-friendly charting lib (fast, small, handles time-series perfectly).
+**Polling example** (sensor data every 2 s):
+```html
+<div hx-get="/temperature" hx-trigger="every 2s" hx-swap="innerHTML">24°C</div>
+```
 
-If you find yourself needing more interactivity (forms with live validation, toggles, etc.), sprinkle in **Alpine.js** — it plays nicely alongside htmx.
+The MCU endpoint returns a plain text or HTML fragment for htmx swaps; `fs_open_custom` is the right pattern for those dynamic responses (see CLAUDE.md).
 
-So the full "heavy" version would be:
+For **charts**, add **uPlot** — fast, small, handles time-series well:
+```html
+<script src="https://unpkg.com/uplot@1/dist/uPlot.iife.min.js"></script>
+```
 
 | Layer | Library |
 |---|---|
-| Styling | Pico.css |
+| Styling | Tailwind CSS |
 | Interactivity | htmx |
-| Reactive UI (if needed) | Alpine.js |
+| Reactive UI | Alpine.js |
 | Charts (if needed) | uPlot |
-
-But genuinely start with just htmx + Pico.css and only add when you hit a wall.

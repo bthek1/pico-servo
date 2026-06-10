@@ -227,19 +227,20 @@ See `targets/webserver/` for a working bidirectional serial terminal using both 
 
 ### Frontend Tech Stack (webserver UI)
 
-For dashboard and config pages served from the Pico, use **htmx + Pico.css** as the baseline. Both load from CDN — zero flash storage cost.
+For dashboard and config pages served from the Pico, use **Tailwind CSS + htmx + Alpine.js**. All load from CDN — zero flash storage cost.
 
 | Layer | Library | When to add |
 |---|---|---|
-| Styling | Pico.css | Always |
+| Styling | Tailwind CSS (play CDN) | Always |
 | Interactivity | htmx | Always |
-| Reactive UI | Alpine.js | When you need live validation, toggles, local state |
+| Reactive UI | Alpine.js | Always (tab switching, sliders, local state) |
 | Charts | uPlot | When you need time-series plots |
 
 **Why this stack:**
 - The Pico only serves simple HTML fragments — no JSON parsing, no JS state management on the MCU
 - htmx handles polling, form submission, and partial updates with HTML attributes alone
-- Pico.css gives clean responsive UI from semantic HTML, no utility classes
+- Tailwind utility classes give full control over the dark UI without any custom CSS framework overhead
+- Alpine.js handles reactive state (tabs, buttons, sliders) with minimal JS
 
 **Polling example** (sensor data every 2 s):
 ```html
@@ -248,10 +249,10 @@ For dashboard and config pages served from the Pico, use **htmx + Pico.css** as 
 
 **CDN links** (put in `<head>`):
 ```html
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+<script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/htmx.org@2/dist/htmx.min.js"></script>
-<!-- Add only if needed: -->
 <script src="https://unpkg.com/alpinejs@3/dist/cdn.min.js" defer></script>
+<!-- Add only if needed: -->
 <script src="https://unpkg.com/uplot@1/dist/uPlot.iife.min.js"></script>
 ```
 
