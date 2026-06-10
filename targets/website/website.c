@@ -156,6 +156,12 @@ static const char *cgi_esc(int iIndex, int iNumParams, char *pcParam[], char *pc
             esc_set_us(ESC_GPIO, (uint16_t)v);
         } else if (strcmp(pcParam[i], "brake") == 0) {
             esc_brake(ESC_GPIO);
+        } else if (strcmp(pcParam[i], "cal_start") == 0) {
+            esc_calibrate_start(ESC_GPIO);
+        } else if (strcmp(pcParam[i], "cal_low") == 0) {
+            esc_calibrate_low(ESC_GPIO);
+        } else if (strcmp(pcParam[i], "cal_cancel") == 0) {
+            esc_calibrate_cancel(ESC_GPIO);
         }
     }
     return "/ok.txt";
@@ -197,8 +203,10 @@ int fs_open_custom(struct fs_file *file, const char *name) {
     }
     if (strcmp(name, "/esc_info.txt") == 0) {
         esc_state_t st = esc_get_state(ESC_GPIO);
-        const char *state_str = st == ESC_STATE_ARMING ? "arming"
-                              : st == ESC_STATE_ARMED   ? "armed"
+        const char *state_str = st == ESC_STATE_ARMING   ? "arming"
+                              : st == ESC_STATE_ARMED    ? "armed"
+                              : st == ESC_STATE_CAL_HIGH ? "cal_high"
+                              : st == ESC_STATE_CAL_LOW  ? "cal_low"
                               : "disarmed";
         s_esc_info_len = snprintf(s_esc_info_buf, sizeof(s_esc_info_buf),
             "state=%s\ntype=%s\nmin_us=%d\nmax_us=%d\nneutral_us=%d\ndeadband_us=%d\n",

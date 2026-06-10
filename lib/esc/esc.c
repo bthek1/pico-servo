@@ -16,6 +16,7 @@ typedef struct {
     esc_config_t    cfg;
     esc_state_t     state;
     absolute_time_t arm_deadline;
+    absolute_time_t cal_deadline;
     absolute_time_t last_cmd;
     uint16_t        last_us;
     bool            inited;
@@ -89,6 +90,19 @@ void esc_update(uint gpio) {
         int64_t elapsed = absolute_time_diff_us(s->last_cmd, get_absolute_time());
         if (elapsed > FAILSAFE_US)
             raw_pulse(gpio, s->cfg.neutral_us);
+        return;
+    }
+
+    if (s->state == ESC_STATE_CAL_HIGH) {
+        raw_pulse(gpio, s->cfg.max_us);
+        return;
+    }
+
+    if (s->state == ESC_STATE_CAL_LOW) {
+        raw_pulse(gpio, s->cfg.min_us);
+        if (time_reached(s->cal_deadline))
+            s->state = ESC_STATE_DISARMED;
+        return;
     }
 }
 
@@ -130,4 +144,26 @@ void esc_brake(uint gpio) {
     if (!s || s->state != ESC_STATE_ARMED) return;
     s->last_cmd = get_absolute_time();
     raw_pulse(gpio, s->cfg.neutral_us);
+}
+
+void esc_calibrate_start(uint gpio) {
+    esc_slot_t *s = get_slot(gpio);
+    if (!s || s->state != ESC_STATE_DISARMED) return;
+    s->state = ESC_STATE_CAL_HIGH;
+    raw_pulse(gpio, s->cfg.max_us);
+}
+
+void esc_calibrate_low(uint gpio) {
+    esc_slot_t *s = get_slot(gpio);
+    if (!s || s->state != ESC_STATE_CAL_HIGH) return;
+    s->state        = ESC_STATE_CAL_LOW;
+    s->cal_deadline = make_timeout_time_ms(2000);
+    raw_pulse(gpio, s->cfg.min_us);
+}
+
+void esc_calibrate_cancel(uint gpio) {
+    esc_slot_t *s = get_slot(gpio);
+    if (!s) return;
+    s->state = ESC_STATE_DISARMED;
+    raw_pulse(gpio, s->cfg.min_us);
 }

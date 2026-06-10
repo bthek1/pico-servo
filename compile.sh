@@ -59,7 +59,7 @@ CMAKE_START=$SECONDS
 cmake .. -DPICO_BOARD=pico_w 2>&1 \
     | sed "s/^/${GRAY}       /" \
     | sed "s/$/${RESET}/"
-ok "Configured  ${GRAY}(${$((SECONDS - CMAKE_START))} s)${RESET}"
+ok "Configured  ${GRAY}($((SECONDS - CMAKE_START)) s)${RESET}"
 
 # ── make ───────────────────────────────────────────────────────────────────
 JOBS=$(nproc)

@@ -314,8 +314,8 @@
         <div class="flex items-center gap-3">
           <span class="inline-block w-3.5 h-3.5 rounded-full transition-all"
                 :class="{
-                  'bg-zinc-700': state === 'disarmed',
-                  'bg-amber-500 animate-hpulse': state === 'arming',
+                  'bg-zinc-700': state === 'disarmed' && calStep === 0,
+                  'bg-amber-500 animate-hpulse': state === 'arming' || calStep === 1 || calStep === 2,
                   'bg-green-500 shadow-[0_0_6px_#22c55e]': state === 'armed'
                 }">
           </span>
@@ -323,7 +323,7 @@
         </div>
 
         <!-- Arm / Disarm -->
-        <div>
+        <div x-show="calStep === 0">
           <div class="text-xs uppercase text-zinc-500 tracking-wide mb-2">Control</div>
           <div class="flex gap-2">
             <button @mousedown="startArm()" @mouseup="cancelArm()" @mouseleave="cancelArm()"
@@ -347,7 +347,7 @@
         </div>
 
         <!-- Throttle readout + slider -->
-        <div>
+        <div x-show="calStep === 0">
           <div class="text-4xl font-bold text-red-500 text-center"
                :class="state !== 'armed' ? 'opacity-40' : ''"
                x-text="throttleLabel()"></div>
@@ -369,7 +369,8 @@
         </div>
 
         <!-- Brake -->
-        <button @click="brake()"
+        <button x-show="calStep === 0"
+                @click="brake()"
                 :disabled="state !== 'armed'"
                 :class="state === 'armed'
                   ? 'bg-red-700 hover:bg-red-600 border-red-600 text-white'
@@ -379,7 +380,7 @@
         </button>
 
         <!-- ESC Type -->
-        <div>
+        <div x-show="calStep === 0">
           <div class="text-xs uppercase text-zinc-500 tracking-wide mb-2">ESC Type</div>
           <div class="flex gap-2">
             <button @click="setType('unidirectional')"
@@ -388,6 +389,63 @@
             <button @click="setType('bidirectional')"
                     :class="type === 'bidirectional' ? 'bg-zinc-600 border-zinc-500 text-white' : 'bg-zinc-950 border-zinc-700 text-zinc-300 hover:bg-zinc-800'"
                     class="px-3 py-1.5 border rounded text-sm transition-colors">Bidirectional</button>
+          </div>
+        </div>
+
+        <!-- Calibrate trigger -->
+        <div x-show="calStep === 0 && state === 'disarmed'">
+          <div class="text-xs uppercase text-zinc-500 tracking-wide mb-2">Calibration</div>
+          <button @click="startCal()"
+                  class="px-3 py-1.5 bg-zinc-950 border border-amber-700 hover:border-amber-500 text-amber-400 hover:text-amber-300 rounded text-sm transition-colors">
+            Calibrate Range (1000–2000 µs)
+          </button>
+          <div class="mt-1 text-xs text-zinc-600">Use if the ESC is mis-calibrated or not responding at expected pulse widths.</div>
+        </div>
+
+        <!-- Calibration wizard -->
+        <div x-show="calStep > 0" class="bg-zinc-950 border border-amber-800 rounded-lg p-4 space-y-4">
+          <div class="text-xs uppercase text-amber-500 tracking-wide">ESC Calibration</div>
+
+          <!-- Step 1: hold max, wait for power-cycle -->
+          <div x-show="calStep === 1" class="space-y-3">
+            <div class="text-3xl font-bold text-red-500 text-center">2000 µs</div>
+            <p class="text-sm text-zinc-300 leading-relaxed">
+              The Pico is holding <span class="text-red-400 font-semibold">2000 µs</span> (max throttle).<br>
+              <strong>Power-cycle the ESC</strong> — unplug its power, wait 1 s, plug back in.<br>
+              When you hear the battery cell-count beeps, click the button below.
+            </p>
+            <div class="flex gap-2">
+              <button @click="calLow()"
+                      class="flex-1 py-2 bg-amber-800 hover:bg-amber-700 border border-amber-600 text-white rounded text-sm font-semibold transition-colors">
+                ESC is on &mdash; set minimum (1000 µs)
+              </button>
+              <button @click="cancelCal()"
+                      class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 rounded text-sm transition-colors">
+                Cancel
+              </button>
+            </div>
+          </div>
+
+          <!-- Step 2: hold min, waiting for firmware to finish -->
+          <div x-show="calStep === 2" class="space-y-3">
+            <div class="text-3xl font-bold text-green-400 text-center">1000 µs</div>
+            <p class="text-sm text-zinc-300">
+              Holding <span class="text-green-400 font-semibold">1000 µs</span> (min throttle).<br>
+              The ESC will beep to confirm — calibration completes in 2 s.
+            </p>
+            <div class="h-1.5 w-full bg-zinc-800 rounded overflow-hidden">
+              <div class="h-full bg-amber-500 rounded animate-pulse w-full"></div>
+            </div>
+          </div>
+
+          <!-- Step 3: done -->
+          <div x-show="calStep === 3" class="space-y-3">
+            <p class="text-sm text-green-400 font-semibold">&#10003; Calibration complete — range set to 1000–2000 µs</p>
+            <p class="text-xs text-zinc-400">Arm the ESC to verify the motor responds across the full range.</p>
+            <button @click="doneCal()"
+                    class="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 border border-zinc-600 text-white rounded text-sm transition-colors">
+              Done
+            </button>
           </div>
         </div>
 
@@ -588,9 +646,11 @@
       neutralUs:  1000,
       deadbandUs: 0,
       armCountdown: 0,
+      calStep: 0,
       _armTimer: null,
       _debounce: null,
       _heartbeat: null,
+      _calPoll: null,
       _warned: false,
 
       init() {
@@ -679,8 +739,40 @@
         send('/esc?pulse=' + this.throttle);
       },
 
+      startCal() {
+        send('/esc?cal_start');
+        this.calStep = 1;
+      },
+      calLow() {
+        send('/esc?cal_low');
+        this.calStep = 2;
+        this._calPoll = setInterval(() => {
+          fetch('/esc_info.txt').then(r => r.text()).then(t => {
+            const p = Object.fromEntries(
+              t.trim().split('\n').map(l => l.split('=').map(s => s.trim()))
+            );
+            if (p.state === 'disarmed') {
+              clearInterval(this._calPoll);
+              this._calPoll = null;
+              this.state   = 'disarmed';
+              this.calStep = 3;
+            }
+          }).catch(() => {});
+        }, 300);
+      },
+      cancelCal() {
+        if (this._calPoll) { clearInterval(this._calPoll); this._calPoll = null; }
+        send('/esc?cal_cancel');
+        this.state   = 'disarmed';
+        this.calStep = 0;
+      },
+      doneCal() { this.calStep = 0; },
+
       stateLabel() {
         if (this.armCountdown > 0) return 'HOLD… ' + this.armCountdown + 's';
+        if (this.calStep === 1) return 'CALIBRATING — HOLD MAX';
+        if (this.calStep === 2) return 'CALIBRATING — HOLD MIN';
+        if (this.calStep === 3) return 'CALIBRATION DONE';
         return this.state.toUpperCase();
       },
       throttleLabel() {

@@ -10,6 +10,8 @@ typedef enum {
     ESC_STATE_DISARMED,
     ESC_STATE_ARMING,     // holding min throttle during arm window
     ESC_STATE_ARMED,
+    ESC_STATE_CAL_HIGH,   // calibration: holding max_us, waiting for user power-cycle
+    ESC_STATE_CAL_LOW,    // calibration: holding min_us for 2 s, then → DISARMED
 } esc_state_t;
 
 typedef struct {
@@ -31,7 +33,7 @@ void        esc_arm(uint gpio);
 void        esc_disarm(uint gpio);
 esc_state_t esc_get_state(uint gpio);
 
-// Drives arm timer and 500 ms failsafe; must be called every loop iteration
+// Drives arm timer, 500 ms failsafe, and calibration completion; call every loop
 void esc_update(uint gpio);
 
 // No-op unless state is ARMED
@@ -40,3 +42,11 @@ void esc_set_speed(uint gpio, float speed);         // bidirectional: -1.0–+1.
 void esc_brake(uint gpio);                          // sends neutral_us
 void esc_set_us(uint gpio, uint16_t pulse_us);      // raw; clamped to [min_us, max_us]
 uint16_t esc_get_us(uint gpio);                     // last pulse actually sent (µs), including failsafe
+
+// Throttle-range calibration (only from DISARMED)
+// Step 1: holds max_us — power-cycle the ESC, wait for beeps, then call step 2
+void esc_calibrate_start(uint gpio);
+// Step 2: holds min_us for 2 s, then auto-returns to DISARMED
+void esc_calibrate_low(uint gpio);
+// Cancel calibration mid-sequence (returns to DISARMED, sends min_us)
+void esc_calibrate_cancel(uint gpio);
