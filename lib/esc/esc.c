@@ -29,11 +29,6 @@ static void raw_pulse(uint gpio, uint16_t pulse_us) {
     if (gpio < MAX_GPIO) s_slots[gpio].last_us = pulse_us;
 }
 
-uint16_t esc_get_us(uint gpio) {
-    esc_slot_t *s = get_slot(gpio);
-    return s ? s->last_us : 0;
-}
-
 void esc_init(uint gpio, const esc_config_t *cfg) {
     gpio_set_function(gpio, GPIO_FUNC_PWM);
     uint slice = pwm_gpio_to_slice_num(gpio);
@@ -50,6 +45,11 @@ void esc_init(uint gpio, const esc_config_t *cfg) {
 
 static esc_slot_t *get_slot(uint gpio) {
     return (gpio < MAX_GPIO && s_slots[gpio].inited) ? &s_slots[gpio] : NULL;
+}
+
+uint16_t esc_get_us(uint gpio) {
+    esc_slot_t *s = get_slot(gpio);
+    return s ? s->last_us : 0;
 }
 
 void esc_arm(uint gpio) {
