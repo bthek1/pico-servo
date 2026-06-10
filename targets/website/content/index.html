@@ -1,432 +1,313 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Pico W Control Panel</title>
+  <title>Pico W</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <script src="https://unpkg.com/htmx.org@2/dist/htmx.min.js"></script>
+  <script src="https://unpkg.com/alpinejs@3/dist/cdn.min.js" defer></script>
   <style>
-    :root {
-      --bg: #0d0d0d; --surface: #1a1a1a; --border: #2a2a2a;
-      --accent: #e53935; --text: #e0e0e0; --text-muted: #666;
-      --green: #43a047; --orange: #ff9800; --mono: 'Courier New', monospace;
+    body { padding: 0; }
+
+    header {
+      padding: .6rem 1.25rem;
+      border-bottom: 1px solid var(--pico-muted-border-color);
+      display: flex; align-items: center; justify-content: space-between;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif;
-           font-size: 14px; display: flex; flex-direction: column; height: 100vh; }
+    .brand { font-weight: 600; display: flex; align-items: center; gap: .5rem; }
+    @keyframes hpulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+    #status-dot { animation: hpulse 2s infinite; color: var(--pico-color-green-500); }
+    #status-dot.error { animation: none; color: var(--pico-color-red-500); }
+    .meta { color: var(--pico-muted-color); font-size: .85rem; }
 
-    header { display: flex; justify-content: space-between; align-items: center;
-             padding: .6rem 1.25rem; background: var(--surface); border-bottom: 1px solid var(--border); }
-    .brand { display: flex; align-items: center; gap: .5rem; font-weight: 600; }
-    @keyframes hpulse { 0%,100%{opacity:1} 50%{opacity:.35} }
-    #dot { color: var(--green); animation: hpulse 2s infinite; }
-    #dot.error { color: var(--accent); animation: none; }
-    .meta { color: var(--text-muted); font-size: .82rem; }
+    nav.tabs { padding: 0 1.25rem; border-bottom: 1px solid var(--pico-muted-border-color); }
+    nav.tabs ul { margin: 0; padding: 0; display: flex; list-style: none; gap: .25rem; }
+    nav.tabs button {
+      background: none; border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--pico-muted-color);
+      cursor: pointer; padding: .65rem 1rem; font-size: .9rem;
+      transition: color .15s, border-color .15s;
+    }
+    nav.tabs button:hover { color: var(--pico-color); }
+    nav.tabs button[aria-current] {
+      color: var(--pico-primary);
+      border-bottom-color: var(--pico-primary);
+    }
 
-    nav { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 1.25rem; }
-    .tab { background: none; border: none; border-bottom: 2px solid transparent; color: var(--text-muted);
-           cursor: pointer; font-size: .9rem; padding: .65rem 1rem; transition: color .15s, border-color .15s; }
-    .tab:hover { color: var(--text); }
-    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-
-    main { flex: 1; overflow: hidden; padding: 1.25rem; }
-    .panel { display: none; height: 100%; }
-    .panel.visible { display: flex; flex-direction: column; }
-    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 1.25rem; }
+    main { padding: 1.25rem; }
 
     /* Terminal */
-    #panel-terminal { gap: .75rem; }
-    #output { flex: 1; background: #111; border: 1px solid var(--border); border-radius: 4px;
-              padding: .6rem; overflow-y: auto; white-space: pre-wrap;
-              font-family: var(--mono); font-size: .82rem; color: #ccc; }
-    #input-row { display: flex; gap: .5rem; }
-    #tinput { flex: 1; background: #111; color: var(--text); border: 1px solid var(--border);
-              border-radius: 4px; padding: .4rem .6rem; font-family: var(--mono); font-size: .85rem; }
-    #tinput:focus { outline: none; border-color: #444; }
+    #term-out {
+      display: block; width: 100%;
+      height: 60vh; overflow-y: auto;
+      background: var(--pico-card-background-color);
+      border: 1px solid var(--pico-muted-border-color);
+      border-radius: var(--pico-border-radius);
+      padding: .6rem; margin-bottom: .75rem;
+      font-family: monospace; font-size: .85rem;
+      white-space: pre-wrap;
+    }
+    #term-form { display: flex; gap: .5rem; margin: 0; }
+    #term-form input  { flex: 1; margin: 0; }
+    #term-form button { width: auto; margin: 0; }
 
-    /* Shared */
-    .btn { padding: .45rem .9rem; border: 1px solid var(--border); border-radius: 4px;
-           background: var(--surface); color: var(--text); cursor: pointer; font-size: .85rem;
-           transition: background .15s, border-color .15s; }
-    .btn:hover { background: #222; border-color: #444; }
-    .btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
-    .btn-group { display: flex; gap: .5rem; }
-    .presets { display: flex; gap: .5rem; flex-wrap: wrap; }
-    .section-label { color: var(--text-muted); font-size: .78rem; text-transform: uppercase;
-                     letter-spacing: .05em; margin-bottom: .35rem; }
-    .slider-wrap { display: flex; flex-direction: column; gap: .4rem; }
-    .slider-row  { display: flex; align-items: center; gap: .5rem; }
-    .slider-row span { color: var(--text-muted); font-size: .78rem; white-space: nowrap; min-width: 3.2rem; }
-    .slider-row span:last-child { text-align: right; }
-    input[type=range] { flex: 1; accent-color: var(--accent); cursor: pointer; }
-    .slider-val { text-align: center; color: var(--text-muted); font-size: .85rem; }
-
-    /* Light */
-    .light-card { display: flex; flex-direction: column; gap: 1rem; }
-    .led-indicator { display: flex; align-items: center; justify-content: center; gap: .75rem; padding: .6rem 0; }
-    .led-dot { width: 16px; height: 16px; border-radius: 50%; background: #444; transition: background .3s; }
-    .led-dot.on    { background: var(--green); box-shadow: 0 0 8px var(--green); }
-    @keyframes ldpulse { 0%,100%{opacity:1} 50%{opacity:.2} }
-    .led-dot.blink { background: var(--green); animation: ldpulse .2s infinite; }
-    .led-label { font-size: .95rem; font-weight: 600; }
+    /* LED dot */
+    .led-dot {
+      display: inline-block; width: 14px; height: 14px;
+      border-radius: 50%; background: var(--pico-muted-border-color);
+      vertical-align: middle; transition: background .3s;
+    }
+    .led-dot[data-state="on"] {
+      background: var(--pico-color-green-500);
+      box-shadow: 0 0 6px var(--pico-color-green-500);
+    }
+    @keyframes ldpulse { 0%,100%{opacity:1} 50%{opacity:.15} }
+    .led-dot[data-state="blink"] {
+      background: var(--pico-color-green-500);
+      animation: ldpulse .2s infinite;
+    }
 
     /* Servo */
-    .servo-card { display: flex; flex-direction: column; gap: 1rem; width: 100%; }
-    .pulse-display { font-size: 2.2rem; font-weight: 700; color: var(--accent); text-align: center; }
-    .secondary-label { font-size: 1rem; color: var(--text-muted); text-align: center; margin-top: -.5rem; }
-    .servo-controls { display: flex; flex-direction: column; gap: .75rem; width: 100%; }
-    .btn-stop { background: var(--accent); border-color: var(--accent); color: #fff;
-                font-size: 1rem; font-weight: 700; padding: .6rem; width: 100%; }
-    .btn-stop:hover { background: #c62828; border-color: #c62828; }
-    .btn-centre { background: #1b2e1b; border-color: var(--green); color: var(--green);
-                  font-size: .9rem; font-weight: 600; padding: .5rem; width: 100%; }
-    .btn-centre:hover { background: #243824; }
-    .warning-banner { background: #1f1200; border: 1px solid var(--orange); border-radius: 4px;
-                      color: var(--orange); font-size: .82rem; padding: .5rem .75rem;
-                      display: none; gap: .4rem; align-items: flex-start; }
-    .warning-banner.visible { display: flex; }
+    .pulse-display {
+      font-size: 2.5rem; font-weight: 700;
+      color: var(--pico-primary); text-align: center;
+    }
+    .pulse-sub {
+      text-align: center; color: var(--pico-muted-color);
+      margin-top: -.5rem; margin-bottom: .75rem;
+    }
+    .range-warning {
+      display: none; padding: .5rem .75rem; margin-top: .5rem;
+      background: color-mix(in srgb, var(--pico-color-amber-500) 10%, transparent);
+      border: 1px solid var(--pico-color-amber-500);
+      border-radius: var(--pico-border-radius);
+      font-size: .85rem; color: var(--pico-color-amber-300);
+    }
+    .range-warning.visible { display: block; }
   </style>
 </head>
 <body>
-  <header>
-    <span class="brand"><span id="dot">●</span> Pico W Control Panel</span>
-    <span class="meta"><span id="ip"></span>&nbsp;&nbsp;↑&nbsp;<span id="uptime">0 s</span></span>
-  </header>
 
-  <nav>
-    <button class="tab active" data-tab="terminal" onclick="showTab(this)">Terminal</button>
-    <button class="tab"        data-tab="light"    onclick="showTab(this)">Light</button>
-    <button class="tab"        data-tab="servo"    onclick="showTab(this)">Servo</button>
+<header>
+  <span class="brand">
+    <span id="status-dot">●</span>
+    Pico W
+  </span>
+  <span id="ip-label" class="meta"></span>
+</header>
+
+<div x-data="{ tab: 'terminal' }">
+
+  <nav class="tabs">
+    <ul>
+      <li><button @click="tab='terminal'" :aria-current="tab==='terminal' || undefined">Terminal</button></li>
+      <li><button @click="tab='light'"    :aria-current="tab==='light'    || undefined">Light</button></li>
+      <li><button @click="tab='servo'"    :aria-current="tab==='servo'    || undefined">Servo</button></li>
+    </ul>
   </nav>
 
   <main>
+
     <!-- Terminal -->
-    <div id="panel-terminal" class="panel card visible">
-      <div id="output"></div>
-      <div id="input-row">
-        <input id="tinput" type="text" placeholder="type and press Enter…" autocomplete="off">
-        <button class="btn active" onclick="send()">→</button>
-      </div>
-    </div>
+    <section x-show="tab==='terminal'">
+      <output id="term-out"
+              hx-get="/recv.txt"
+              hx-trigger="every 200ms"
+              hx-swap="beforeend"
+      ></output>
+      <form id="term-form"
+            x-data="{ msg: '' }"
+            @submit.prevent="
+              const out = document.getElementById('term-out');
+              out.textContent += '> ' + msg + '\n';
+              out.scrollTop = out.scrollHeight;
+              fetch('/send?data=' + encodeURIComponent(msg));
+              msg = ''">
+        <input x-model="msg" type="text" placeholder="type and press Enter…" autocomplete="off">
+        <button type="submit">→</button>
+      </form>
+    </section>
 
     <!-- Light -->
-    <div id="panel-light" class="panel card">
-      <div class="light-card">
-        <div>
-          <div class="section-label">LED Status</div>
-          <div class="led-indicator">
-            <div id="led-dot" class="led-dot"></div>
-            <span id="led-label" class="led-label" style="color:var(--text-muted)">OFF</span>
-          </div>
-        </div>
-        <div>
-          <div class="section-label">Mode</div>
-          <div class="btn-group">
-            <button class="btn" id="btn-on"    onclick="setLed('on')">ON</button>
-            <button class="btn" id="btn-blink" onclick="setLed('blink')">BLINK</button>
-            <button class="btn active" id="btn-off" onclick="setLed('off')">OFF</button>
-          </div>
-        </div>
-        <div>
-          <div class="section-label">Blink Speed</div>
-          <div class="slider-wrap">
-            <div class="slider-row">
-              <span>50ms</span>
-              <input id="blink-slider" type="range" min="50" max="5000" value="100"
-                     onchange="onBlinkChange(this.value)">
-              <span>5s</span>
-            </div>
-            <div id="blink-val" class="slider-val">100 ms</div>
-          </div>
-        </div>
-        <div>
-          <div class="section-label">Presets</div>
-          <div class="presets">
-            <button class="btn" onclick="blinkPreset(50)">50ms</button>
-            <button class="btn" onclick="blinkPreset(100)">100ms</button>
-            <button class="btn" onclick="blinkPreset(250)">250ms</button>
-            <button class="btn" onclick="blinkPreset(500)">500ms</button>
-            <button class="btn" onclick="blinkPreset(1000)">1s</button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <section x-show="tab==='light'" x-data="ledPanel()" x-init="init()">
+      <article>
+        <header style="display:flex; align-items:center; gap:.75rem; margin-bottom:1rem">
+          <span class="led-dot" :data-state="mode"></span>
+          <strong x-text="mode.toUpperCase()"></strong>
+        </header>
 
-    <!-- Servo (built dynamically after /servo_info.txt loads) -->
-    <div id="panel-servo" class="panel card">
-      <div id="servo-card" class="servo-card">
-        <div style="color:var(--text-muted)">Loading…</div>
-      </div>
-    </div>
+        <div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:1rem">
+          <button @click="set('on')"    :aria-pressed="mode==='on'"    class="secondary">ON</button>
+          <button @click="set('blink')" :aria-pressed="mode==='blink'" class="secondary">BLINK</button>
+          <button @click="set('off')"   :aria-pressed="mode==='off'"   class="secondary">OFF</button>
+        </div>
+
+        <label>
+          Blink speed —
+          <span x-text="ms < 1000 ? ms + ' ms' : (ms / 1000).toFixed(1) + ' s'"></span>
+          <input type="range" min="50" max="5000" x-model.number="ms"
+                 @change="if (mode === 'blink') send('/led?state=blink&ms=' + ms)">
+        </label>
+
+        <div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.5rem">
+          <button class="outline secondary" @click="blinkPreset(50)">50 ms</button>
+          <button class="outline secondary" @click="blinkPreset(100)">100 ms</button>
+          <button class="outline secondary" @click="blinkPreset(250)">250 ms</button>
+          <button class="outline secondary" @click="blinkPreset(500)">500 ms</button>
+          <button class="outline secondary" @click="blinkPreset(1000)">1 s</button>
+        </div>
+      </article>
+    </section>
+
+    <!-- Servo -->
+    <section x-show="tab==='servo'" x-data="servoPanel()" x-init="init()">
+      <article>
+        <div class="pulse-display" x-text="pulse + ' µs'"></div>
+        <div class="pulse-sub"     x-text="label()"></div>
+
+        <label>
+          Pulse width
+          <input type="range" :min="range.min" :max="range.max" x-model.number="pulse"
+                 @input="debounceSend('/servo?pulse=' + pulse)">
+        </label>
+
+        <div style="display:flex; gap:.5rem; margin-bottom:1rem">
+          <button @click="setMode('positional')" :aria-pressed="mode==='positional'" class="secondary">Positional</button>
+          <button @click="setMode('continuous')"  :aria-pressed="mode==='continuous'"  class="secondary">Continuous</button>
+        </div>
+
+        <div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:.25rem">
+          <button @click="setRange('standard')" :aria-pressed="rangeKey==='standard'" class="outline secondary">Standard (1000–2000 µs)</button>
+          <button @click="setRange('extended')" :aria-pressed="rangeKey==='extended'" class="outline secondary">Extended (600–2400 µs) ⚠</button>
+        </div>
+        <div class="range-warning" :class="{ visible: rangeKey === 'extended' }">
+          ⚠ Extended range may damage servo gears. Avoid sustained use at limits.
+        </div>
+
+        <template x-if="mode === 'continuous'">
+          <label style="margin-top:.75rem">
+            Stop trim —
+            <span x-text="(trim >= 0 ? '+' : '') + trim + ' µs'"></span>
+            <input type="range" min="-50" max="50" x-model.number="trim"
+                   @change="send('/servo?trim=' + trim)">
+          </label>
+        </template>
+
+        <button @click="action()" style="width:100%; margin-top:.75rem"
+                :style="mode==='continuous'
+                  ? 'background:var(--pico-color-red-600); border-color:var(--pico-color-red-600)'
+                  : 'background:var(--pico-color-green-800); border-color:var(--pico-color-green-500); color:var(--pico-color-green-300)'"
+                x-text="mode === 'continuous' ? '■ STOP' : 'Centre (1500 µs)'">
+        </button>
+      </article>
+    </section>
+
   </main>
+</div>
 
-  <script>
-    const state = { ledMode: 'off', blinkMs: 100, errorCount: 0 };
+<script>
+  document.getElementById('ip-label').textContent = location.hostname;
 
-    // Servo state
-    let servoType  = 'positional'; // from firmware
-    let servoMode  = 'positional'; // UI selection (may differ)
-    let servoRange = 'standard';   // 'standard' | 'extended'
-    let servoBusy  = false;
-    let srvTimer   = null;
+  // htmx connectivity indicator
+  document.body.addEventListener('htmx:responseError', () => {
+    document.getElementById('status-dot').classList.add('error');
+  });
+  document.body.addEventListener('htmx:afterRequest', e => {
+    if (e.detail.successful) document.getElementById('status-dot').classList.remove('error');
+  });
+  // auto-scroll terminal on new content
+  document.body.addEventListener('htmx:afterSwap', e => {
+    if (e.target && e.target.id === 'term-out')
+      e.target.scrollTop = e.target.scrollHeight;
+  });
 
-    const RANGES = {
-      standard: { min: 1000, max: 2000 },
-      extended: { min: 600,  max: 2400 },
+  function send(url) {
+    fetch(url).catch(() => document.getElementById('status-dot').classList.add('error'));
+  }
+
+  // ── LED panel ──────────────────────────────────────────────────────────────
+  function ledPanel() {
+    return {
+      mode: 'off',
+      ms: 100,
+      init() {},
+      set(m) {
+        this.mode = m;
+        let url = '/led?state=' + m;
+        if (m === 'blink') url += '&ms=' + this.ms;
+        send(url);
+      },
+      blinkPreset(ms) {
+        this.ms = ms;
+        this.set('blink');
+      },
     };
+  }
 
-    document.getElementById('ip').textContent = location.hostname;
+  // ── Servo panel ────────────────────────────────────────────────────────────
+  function servoPanel() {
+    return {
+      mode: 'positional',
+      pulse: 1500,
+      trim: 0,
+      rangeKey: 'standard',
+      ranges: {
+        standard: { min: 1000, max: 2000 },
+        extended: { min: 600,  max: 2400 },
+      },
+      get range() { return this.ranges[this.rangeKey]; },
+      _timer: null,
 
-    // --- Uptime ---
-    let uptimeSec = 0;
-    setInterval(() => {
-      uptimeSec++;
-      const u = uptimeSec;
-      document.getElementById('uptime').textContent =
-        u < 60 ? u + ' s' : u < 3600 ? Math.floor(u/60) + ' m' : Math.floor(u/3600) + ' h';
-    }, 1000);
+      init() {
+        fetch('/servo_info.txt')
+          .then(r => r.text())
+          .then(t => {
+            const p = Object.fromEntries(
+              t.trim().split('\n').map(l => l.split('=').map(s => s.trim()))
+            );
+            this.mode = p.type || 'positional';
+            send('/servo?pulse=1500');
+          })
+          .catch(() => {});
+        window.addEventListener('beforeunload', () => {
+          if (this.mode === 'continuous') navigator.sendBeacon('/servo?stop');
+        });
+      },
 
-    // --- Tab switching ---
-    function showTab(btn) {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.panel').forEach(p => p.classList.remove('visible'));
-      btn.classList.add('active');
-      document.getElementById('panel-' + btn.dataset.tab).classList.add('visible');
-    }
+      send(url)       { send(url); },
+      debounceSend(url) {
+        clearTimeout(this._timer);
+        this._timer = setTimeout(() => send(url), 100);
+      },
 
-    // --- General fetch ---
-    function cmd(url) {
-      fetch(url)
-        .then(() => { state.errorCount = 0; document.getElementById('dot').className = ''; })
-        .catch(() => { state.errorCount++; if (state.errorCount >= 3) document.getElementById('dot').className = 'error'; });
-    }
+      setMode(m) { this.mode = m; },
+      setRange(k) {
+        this.rangeKey = k;
+        const r = this.ranges[k];
+        this.pulse = Math.max(r.min, Math.min(r.max, this.pulse));
+      },
+      action() {
+        this.pulse = 1500;
+        send(this.mode === 'continuous' ? '/servo?stop' : '/servo?pulse=1500');
+      },
 
-    // --- Servo fetch (in-flight guard) ---
-    function servoCmd(url) {
-      if (servoBusy) return;
-      servoBusy = true;
-      fetch(url)
-        .then(() => { state.errorCount = 0; document.getElementById('dot').className = ''; })
-        .catch(() => { state.errorCount++; if (state.errorCount >= 3) document.getElementById('dot').className = 'error'; })
-        .finally(() => { servoBusy = false; });
-    }
-
-    // --- Secondary label ---
-    function secondaryLabel(pulse) {
-      const r = RANGES[servoRange];
-      if (servoMode === 'continuous') {
-        if (Math.abs(pulse - 1500) < 5) return 'STOP';
-        if (pulse > 1500) return 'FWD ' + Math.round((pulse - 1500) / (r.max - 1500) * 100) + '%';
-        return 'REV ' + Math.round((1500 - pulse) / (1500 - r.min) * 100) + '%';
-      } else {
-        const deg = Math.round((pulse - r.min) / (r.max - r.min) * 180);
+      label() {
+        const r = this.range;
+        if (this.mode === 'continuous') {
+          if (Math.abs(this.pulse - 1500) < 5) return 'STOP';
+          const pct = this.pulse > 1500
+            ? Math.round((this.pulse - 1500) / (r.max - 1500) * 100)
+            : Math.round((1500 - this.pulse) / (1500 - r.min) * 100);
+          return (this.pulse > 1500 ? 'FWD ' : 'REV ') + pct + '%';
+        }
+        const deg = Math.round((this.pulse - r.min) / (r.max - r.min) * 180);
         return '≈ ' + Math.max(0, Math.min(180, deg)) + '°';
-      }
-    }
+      },
+    };
+  }
+</script>
 
-    // --- Build servo UI ---
-    function buildServoUI(text) {
-      const p = {};
-      text.trim().split('\n').forEach(l => { const [k,v]=l.split('='); if(k) p[k.trim()]=(v||'').trim(); });
-      servoType = p.type || 'positional';
-      servoMode = servoType;
-      const card = document.getElementById('servo-card');
-      const r = RANGES[servoRange];
-
-      card.innerHTML =
-        '<div>' +
-          '<div class="section-label">Mode</div>' +
-          '<div class="btn-group">' +
-            '<button class="btn' + (servoMode==='positional'?' active':'') + '" id="btn-mode-pos" onclick="setMode(\'positional\')">Positional</button>' +
-            '<button class="btn' + (servoMode==='continuous'?' active':'') + '" id="btn-mode-cont" onclick="setMode(\'continuous\')">Continuous</button>' +
-          '</div>' +
-        '</div>' +
-        '<div id="pulse-display" class="pulse-display">1500 µs</div>' +
-        '<div id="secondary-label" class="secondary-label">' + secondaryLabel(1500) + '</div>' +
-        '<div class="servo-controls">' +
-          '<div class="slider-wrap">' +
-            '<div class="slider-row">' +
-              '<span id="range-min-lbl">' + r.min + ' µs</span>' +
-              '<input id="pulse-slider" type="range" min="' + r.min + '" max="' + r.max + '" value="1500"' +
-              '       oninput="onPulseSlider(this.value)">' +
-              '<span id="range-max-lbl">' + r.max + ' µs</span>' +
-            '</div>' +
-            '<div class="slider-val">Pulse Width (µs)</div>' +
-          '</div>' +
-          '<div>' +
-            '<div class="section-label">Range</div>' +
-            '<div class="btn-group">' +
-              '<button class="btn active" id="btn-range-std" onclick="setRange(\'standard\')">Standard (1000–2000 µs)</button>' +
-              '<button class="btn" id="btn-range-ext" onclick="setRange(\'extended\')">Extended (600–2400 µs) ⚠</button>' +
-            '</div>' +
-          '</div>' +
-          '<div id="range-warning" class="warning-banner">' +
-            '⚠&nbsp; Extended range may damage servo gears. Avoid sustained use at limits.' +
-          '</div>' +
-          '<div id="trim-section" style="display:' + (servoMode==='continuous'?'block':'none') + '">' +
-            '<div class="section-label">Stop Trim (µs)</div>' +
-            '<div class="slider-wrap">' +
-              '<div class="slider-row">' +
-                '<span>−50</span>' +
-                '<input id="trim-slider" type="range" min="-50" max="50" value="0"' +
-                '       onchange="onTrimChange(this.value)">' +
-                '<span>+50</span>' +
-              '</div>' +
-              '<div id="trim-val" class="slider-val">0 µs</div>' +
-            '</div>' +
-          '</div>' +
-          '<button id="btn-action" class="btn ' + (servoMode==='continuous'?'btn-stop':'btn-centre') + '"' +
-          '        onclick="servoAction()">' + (servoMode==='continuous'?'■ STOP':'Centre (1500 µs)') + '</button>' +
-        '</div>';
-
-      servoCmd('/servo?pulse=1500');
-    }
-
-    fetch('/servo_info.txt')
-      .then(r => r.text()).then(buildServoUI)
-      .catch(() => buildServoUI('type=positional\nmin_us=1000\nmax_us=2000\nstop_us=1500\n'));
-
-    window.addEventListener('beforeunload', () => {
-      if (servoMode === 'continuous') navigator.sendBeacon('/servo?stop');
-    });
-
-    // --- Mode toggle ---
-    function setMode(mode) {
-      servoMode = mode;
-      const pos = document.getElementById('btn-mode-pos');
-      const cont = document.getElementById('btn-mode-cont');
-      if (pos)  pos.classList.toggle('active',  mode === 'positional');
-      if (cont) cont.classList.toggle('active', mode === 'continuous');
-
-      const trim = document.getElementById('trim-section');
-      if (trim) trim.style.display = mode === 'continuous' ? 'block' : 'none';
-
-      const btnAction = document.getElementById('btn-action');
-      if (btnAction) {
-        btnAction.className = 'btn ' + (mode === 'continuous' ? 'btn-stop' : 'btn-centre');
-        btnAction.textContent = mode === 'continuous' ? '■ STOP' : 'Centre (1500 µs)';
-      }
-
-      const sl = document.getElementById('secondary-label');
-      const slider = document.getElementById('pulse-slider');
-      if (sl && slider) sl.textContent = secondaryLabel(parseInt(slider.value));
-    }
-
-    // --- Range toggle ---
-    function setRange(range) {
-      servoRange = range;
-      const r = RANGES[range];
-
-      document.getElementById('btn-range-std').classList.toggle('active', range === 'standard');
-      document.getElementById('btn-range-ext').classList.toggle('active', range === 'extended');
-
-      const warning = document.getElementById('range-warning');
-      if (warning) warning.classList.toggle('visible', range === 'extended');
-
-      const slider   = document.getElementById('pulse-slider');
-      const minLbl   = document.getElementById('range-min-lbl');
-      const maxLbl   = document.getElementById('range-max-lbl');
-      if (minLbl) minLbl.textContent = r.min + ' µs';
-      if (maxLbl) maxLbl.textContent = r.max + ' µs';
-
-      if (slider) {
-        slider.min = r.min;
-        slider.max = r.max;
-        const clamped = Math.max(r.min, Math.min(r.max, parseInt(slider.value)));
-        slider.value = clamped;
-        updatePulseDisplay(clamped);
-      }
-    }
-
-    // --- Pulse slider ---
-    function updatePulseDisplay(val) {
-      const pd = document.getElementById('pulse-display');
-      const sl = document.getElementById('secondary-label');
-      if (pd) pd.textContent = val + ' µs';
-      if (sl) sl.textContent = secondaryLabel(val);
-    }
-
-    function onPulseSlider(val) {
-      val = parseInt(val);
-      updatePulseDisplay(val);
-      clearTimeout(srvTimer);
-      srvTimer = setTimeout(() => servoCmd('/servo?pulse=' + val), 100);
-    }
-
-    // --- Action button (STOP or Centre) ---
-    function servoAction() {
-      const slider = document.getElementById('pulse-slider');
-      if (slider) slider.value = 1500;
-      updatePulseDisplay(1500);
-      if (servoMode === 'continuous') servoCmd('/servo?stop');
-      else servoCmd('/servo?pulse=1500');
-    }
-
-    // --- Trim (continuous) ---
-    function onTrimChange(val) {
-      val = parseInt(val);
-      const tv = document.getElementById('trim-val');
-      if (tv) tv.textContent = (val >= 0 ? '+' : '') + val + ' µs';
-      servoCmd('/servo?trim=' + val);
-    }
-
-    // --- Terminal ---
-    const out = document.getElementById('output');
-    const inp = document.getElementById('tinput');
-
-    function append(text) { out.textContent += text; out.scrollTop = out.scrollHeight; }
-    function send() {
-      const text = inp.value.trim();
-      if (!text) return;
-      inp.value = '';
-      append('> ' + text + '\n');
-      fetch('/send?data=' + encodeURIComponent(text)).catch(() => append('[send failed]\n'));
-    }
-    inp.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
-
-    setInterval(() => {
-      fetch('/recv.txt').then(r => r.text()).then(t => {
-        if (t) append(t);
-        state.errorCount = 0;
-        document.getElementById('dot').className = '';
-      }).catch(() => {
-        state.errorCount++;
-        if (state.errorCount >= 3) document.getElementById('dot').className = 'error';
-      });
-    }, 200);
-
-    // --- LED ---
-    function setLed(mode, ms) {
-      state.ledMode = mode;
-      if (ms !== undefined) state.blinkMs = ms;
-      const dot = document.getElementById('led-dot');
-      const lbl = document.getElementById('led-label');
-      dot.className = 'led-dot' + (mode==='on'?' on':mode==='blink'?' blink':'');
-      if (mode==='blink') dot.style.animationDuration = (state.blinkMs*2) + 'ms';
-      lbl.textContent = mode.toUpperCase();
-      lbl.style.color = mode==='off' ? 'var(--text-muted)' : 'var(--text)';
-      ['on','blink','off'].forEach(m =>
-        document.getElementById('btn-' + m).classList.toggle('active', m === mode));
-      let url = '/led?state=' + mode;
-      if (mode==='blink') url += '&ms=' + state.blinkMs;
-      cmd(url);
-    }
-
-    function onBlinkChange(val) {
-      val = parseInt(val);
-      state.blinkMs = val;
-      document.getElementById('blink-val').textContent =
-        val < 1000 ? val + ' ms' : (val/1000).toFixed(1) + ' s';
-      if (state.ledMode === 'blink') {
-        document.getElementById('led-dot').style.animationDuration = (val*2) + 'ms';
-        cmd('/led?state=blink&ms=' + val);
-      }
-    }
-
-    function blinkPreset(ms) {
-      document.getElementById('blink-slider').value = ms;
-      onBlinkChange(ms);
-      setLed('blink', ms);
-    }
-  </script>
 </body>
 </html>

@@ -18,7 +18,7 @@ static int16_t               s_servo_trim_us = 0;
 static char s_serial_buf[SERIAL_BUF_SZ];
 static int  s_serial_len = 0;
 
-static char s_recv_snapshot[SERIAL_BUF_SZ];
+static char s_recv_snapshot[SERIAL_BUF_SZ + 16];
 static int  s_recv_snapshot_len = 0;
 
 static char s_servo_info_buf[64];
@@ -129,8 +129,8 @@ static const tCGI cgi_handlers[] = {
 
 int fs_open_custom(struct fs_file *file, const char *name) {
     if (strcmp(name, "/recv.txt") == 0) {
-        s_recv_snapshot_len = s_serial_len;
-        memcpy(s_recv_snapshot, s_serial_buf, s_serial_len);
+        s_recv_snapshot_len = snprintf(s_recv_snapshot, sizeof(s_recv_snapshot),
+            "<span>%.*s</span>", s_serial_len, s_serial_buf);
         s_serial_len = 0;
 
         file->data  = s_recv_snapshot;

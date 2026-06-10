@@ -9,6 +9,7 @@ pico_add_library(website_content NOFLAG)
 pico_set_lwip_httpd_content(website_content INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/content/index.html
     ${CMAKE_CURRENT_LIST_DIR}/content/ok.txt
+    ${CMAKE_CURRENT_LIST_DIR}/content/empty.txt
 )
 
 target_link_libraries(website
